@@ -12,11 +12,13 @@ grp = np.array([day_group(day_type(d)) for d in days])
 LAM = float(sys.argv[3]) if len(sys.argv) > 3 else 6.0
 SCALE = float(sys.argv[4]) if len(sys.argv) > 4 else 1.0
 # профиль назначений считаем по будням/выходным отдельно, без данных проверяемого дня
-P_by = {g: attraction(np.median(X[grp == g], axis=0), LAM) for g in set(grp)}
+# профиль назначений для месяца m считаем по дням группы вне месяца m (без данных проверяемого дня)
+mon = np.array([d.month for d in days])
+P_by = {(g, m): attraction(np.median(X[(grp == g) & (mon != m)], axis=0), LAM) for g in set(grp) for m in set(mon)}
 plan_p = np.array([plan_pairs(s) for s in range(S)], float)
 
 def day_sim(d, mode="forecast"):
-    P = P_by[grp[d]]
+    P = P_by[(grp[d], mon[d])]
     rows = []
     for t in range(LEAD + 4, S):
         if plan_p[t] <= 0:
@@ -24,6 +26,8 @@ def day_sim(d, mode="forecast"):
         s = t - LEAD
         if mode == "forecast":
             e_hat = PRED[d, s, LEAD]
+        elif mode == "norm":                          # без прогноза: норма дня для слота (BASE), без ML-поправки
+            e_hat = BASE[d, t]
         elif mode == "reactive":                     # без прогноза: берём последний наблюдённый слот
             e_hat = X[d, s]
         f_act = slot_flows(X[d, t], P[t]) * SCALE
@@ -33,7 +37,12 @@ def day_sim(d, mode="forecast"):
         rows.append(dict(t=t, plan=plan_p[t], new=pairs_new, k=k, why=why,
                          f_act=f_act.max(), f_hat=f_hat.max(),
                          load_plan=f_act.max() / tr_plan, load_new=f_act.max() / tr_new))
-    return pd.DataFrame(rows)
+    df = pd.DataFrame(rows)
+    w, k = smooth_removals(list(df.why), list(df.k), list(df.plan))
+    df["why"], df["k"] = w, k
+    df["new"] = df.plan + df.k / TRAINS_PER_PAIR
+    df["load_new"] = df.f_act / (df.new * SLOT / 60)
+    return df
 
 def summarize(mode):
     tot = dict(over_plan=0, over_new=0, ex_plan=0.0, ex_new=0.0, warn=0, warn_hit=0, over_events=0,
@@ -61,7 +70,7 @@ def summarize(mode):
 
 if __name__ == "__main__":
     out = {}
-    for mode in ("forecast", "reactive"):
+    for mode in ("forecast", "norm", "reactive"):
         tot, pd_ = summarize(mode)
         out[mode] = tot
         print(mode, {k: round(float(v), 1) for k, v in tot.items()})

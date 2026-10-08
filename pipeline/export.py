@@ -4,7 +4,7 @@ OUT = sys.argv[2]
 sys.argv = [sys.argv[0], sys.argv[1], "/dev/null"] + sys.argv[3:]
 exec(open("backtest.py").read().split('if __name__')[0])
 
-DEMO = [("2026-05-08", "Пятница перед майскими: поток выше обычного пятничного"),
+DEMO = [("2026-05-08", "Пятница перед майскими: после обеда поток на треть выше нормы"),
         ("2026-02-03", "Обычный вторник: утренний пик у границы нормы"),
         ("2026-09-15", "Обычный вторник: утренний пик выше плана")]
 HHMM = lambda m: f"{int(m)//60:02d}:{int(m)%60:02d}"
@@ -27,7 +27,7 @@ def seg_info(e, P_t):
 res = {}
 for ds, title in DEMO:
     d = list(dstr).index(ds)
-    P = P_by[grp[d]]
+    P = P_by[(grp[d], mon[d])]
     line_act = X[d].sum(1); line_base = BASE[d].sum(1)
     steps = []
     for s in range(4, S - LEAD):
@@ -41,37 +41,34 @@ for ds, title in DEMO:
         f_act = slot_flows(X[d, t], P[t]) * SCALE
         tr_p = plan_p[t] * SLOT / 60; tr_n = new * SLOT / 60
         remain = info["flow"] / tr_n
-        fc = [float(np.nansum(PRED[d, s, h])) for h in range(1, 9)]
-        fb = [float(BASE[d, s + h].sum()) for h in range(1, 9) if s + h < S]
+        fc = [float(np.nansum(PRED[d, s, h])) for h in range(1, 9) if s + h < S]
+        fb = []
         steps.append(dict(_fh=info['flow'], _fa=float(f_act.max()), _t=int(t),
             time=HHMM(SLOTS[s]), target=HHMM(SLOTS[t]), ratio=round(ratio, 3),
             anomaly=("аномально высокий" if ratio >= 1.20 else "повышенный" if ratio >= 1.10 else "аномально низкий" if ratio <= 0.80 else "пониженный" if ratio <= 0.90 else "типичный"),
-            fc=[round(x) for x in fc], fb=[round(x) for x in fb[:len(fc)]],
+            fc=[round(x) for x in fc],
             plan=float(plan_p[t]), new=round(float(new), 1), k=int(k), why=why,
             load_hat_plan=round(info["flow"] / tr_p), load_hat_new=round(remain),
             load_act_plan=round(float(f_act.max() / tr_p)), load_act_new=round(float(f_act.max() / tr_n)),
             seg=info["name"], feeders=info["feeders"],
             capped=bool(remain > NORM_TRAIN * 0.98 and k > 0),
             st_act=[int(x) for x in X[d, s]], st_base=[int(x) for x in BASE[d, s]]))
-    for i, st in enumerate(steps):          # снятие составов только если сигнал держится >=2 из 3 слотов
-        if st["why"] == "недогруз":
-            win = [x for x in steps[max(0, i - 2):i + 1] if x["why"] == "недогруз"]
-            if len(win) < 2:
-                st["k"], st["new"], st["why"] = 0, st["plan"], "норма"
-            else:
-                st["k"] = max(x["k"] for x in win)
-                st["new"] = round(st["plan"] + st["k"] / TRAINS_PER_PAIR, 1)
+    ws, ks = smooth_removals([x["why"] for x in steps], [x["k"] for x in steps], [x["plan"] for x in steps])
+    for st, w_, k_ in zip(steps, ws, ks):
+        st["why"], st["k"] = w_, k_
+        st["new"] = round(st["plan"] + st["k"] / TRAINS_PER_PAIR, 1)
         trp, trn = st["plan"] * SLOT / 60, st["new"] * SLOT / 60
         st["load_hat_plan"], st["load_hat_new"] = round(st["_fh"] / trp), round(st["_fh"] / trn)
         st["load_act_plan"], st["load_act_new"] = round(st["_fa"] / trp), round(st["_fa"] / trn)
         st["capped"] = bool(st["load_hat_new"] > NORM_TRAIN * 0.98 and st["k"] > 0)
+        st["warn_only"] = bool(st["k"] > 0 and st["load_hat_plan"] <= NORM_TRAIN)
         for q in ("_fh", "_fa", "_t"):
             st.pop(q)
     res[ds] = dict(title=title, weekday=days[d].day_name(), type=day_type(days[d]),
                    slots=[HHMM(m) for m in SLOTS], act=[int(x) for x in line_act], base=[int(x) for x in line_base],
                    plan_pairs=[float(x) for x in plan_p], steps=steps)
 
-tot_f, perday = summarize("forecast"); tot_r, _ = summarize("reactive")
+tot_f, perday = summarize("forecast"); tot_r, _ = summarize("reactive"); tot_n, _ = summarize("norm")
 nd = len(perday)
 flag_days = 0
 for d in range(len(days)):
@@ -83,9 +80,6 @@ for d in range(len(days)):
         flag_days += 1
 # качество прогноза (по линии и по станциям), только будни
 mask = np.array([g not in ("sat", "sun") for g in grp])
-def wape(h):
-    a = X[mask][:, 4 + h:, :]; 
-    return None
 err = {}
 for h in (1, 2, 4, 8):
     num_b = num_m = num_bl = den = 0.0; n_b = n_m = 0.0
@@ -95,7 +89,7 @@ for h in (1, 2, 4, 8):
             num_m += np.abs(m - a).sum(); num_b += np.abs(b - a).sum(); den += a.sum()
             n_m += abs(m.sum() - a.sum()); n_b += abs(b.sum() - a.sum())
     err[h * 15] = dict(st_base=num_b / den, st_ml=num_m / den, line_base=n_b / den, line_ml=n_m / den)
-metrics = dict(days=nd, slots=tot_f["n"], flag_days=flag_days, forecast=tot_f, reactive=tot_r, err=err,
+metrics = dict(days=nd, slots=tot_f["n"], flag_days=flag_days, forecast=tot_f, reactive=tot_r, norm=tot_n, err=err,
                plan_trh_day=sum(PLAN_PAIRS[h] * TURNOVER_MIN / 60 for h in PLAN_PAIRS),
                lam=LAM, scale=SCALE, warn_util=WARN_UTIL, norm_train=NORM_TRAIN)
 json.dump(dict(metrics=metrics, days=res, stations=STATIONS,

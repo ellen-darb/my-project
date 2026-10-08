@@ -17,6 +17,7 @@
 *{box-sizing:border-box}
 body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.45 -apple-system,"Segoe UI",Roboto,Inter,system-ui,sans-serif}
 header{padding:14px 16px;display:flex;gap:12px;align-items:center;flex-wrap:wrap;background:var(--card);border-bottom:1px solid var(--line);position:sticky;top:0;z-index:5}
+@media(max-width:700px){header{position:static}}
 .logo{width:34px;height:34px;border-radius:50%;background:var(--accent);color:#fff;display:grid;place-items:center;font-weight:700}
 h1{font-size:17px;margin:0;line-height:1.2}
 .sub{color:var(--mute);font-size:12.5px}
@@ -83,7 +84,7 @@ th{color:var(--mute);font-weight:600}
     <div class="card">
       <h2>Пассажиропоток линии: факт, норма дня, прогноз</h2>
       <div id="chart1"></div>
-      <div class="legend"><span><i style="background:var(--ink)"></i>факт (входы за 15 мин)</span><span><i style="background:var(--mute)"></i>норма для такого дня</span><span><i style="background:var(--accent)"></i>прогноз на 2 часа</span></div>
+      <div class="legend"><span><i style="background:var(--ink)"></i>факт: входы линии за 15 мин</span><span><i style="background:var(--mute)"></i>норма для такого дня</span><span><i style="background:var(--accent)"></i>прогноз на 2 часа</span></div>
     </div>
   </div>
 
@@ -92,7 +93,7 @@ th{color:var(--mute);font-weight:600}
       <h2>Населённость вагона на самом нагруженном перегоне</h2>
       <div id="chart2"></div>
       <div class="legend"><span><i style="background:var(--mute)"></i>по плановому графику</span><span><i style="background:var(--green)"></i>с рекомендацией</span><span><i style="background:var(--red)"></i>норма 120 чел/вагон</span></div>
-      <div class="note">Оценка по входам турникетов и модели распределения поездок (допущение, не замер весовых датчиков). Показан факт дня.</div>
+      <div class="note">Оценка по входам турникетов и модели распределения поездок, не замер датчиков. Кривая построена задним числом по фактическому потоку дня: в работе диспетчер этих цифр заранее не имеет.</div>
     </div>
     <div class="card">
       <h2>Станции сейчас: факт к норме</h2>
@@ -137,14 +138,15 @@ function setDay(k){
   $("daytitle").textContent=`${RU[day.weekday]||day.weekday}, ${k.split("-").reverse().join(".")}. ${day.title}`;
   const t=$("t"); t.max=day.steps.length-1;
   // стартуем с самого интересного момента
-  let best=0, sc=-1; day.steps.forEach((s,i)=>{ const v=(s.k>0?3:0)+(s.anomaly.startsWith("аном")?2:0)+(s.why==="недогруз"?1:0); if(v>sc){sc=v;best=i} });
-  t.value=Math.max(0,best-2); render();
+  let best=0, sc=-1; day.steps.forEach((s,i)=>{ const v=(s.k>0?3:0)+(s.anomaly.startsWith("аном")?2:0)+(s.why==="недогруз"?2:0); if(v>sc){sc=v;best=i} });
+  t.value=best; render();
 }
 
 function render(){
   const day=D.days[dayKey], s=day.steps[+$("t").value];
   $("clock").textContent=s.time;
-  const pill=$("anom"); pill.textContent=`День: ${s.anomaly} (${s.ratio>=1?"+":""}${Math.round((s.ratio-1)*100)}% к норме)`;
+  $("clock").title="Текущее время. Рекомендация дана для слота через 30 минут: "+s.target;
+  const pill=$("anom"); pill.textContent=`Последний час: ${s.anomaly} (${s.ratio>=1?"+":""}${Math.round((s.ratio-1)*100)}% к норме)`;
   pill.className="pill "+(s.anomaly.includes("высок")||s.anomaly==="повышенный"?"hi":s.anomaly.includes("низк")||s.anomaly==="пониженный"?"lo":"ok");
   renderRec(s); renderCharts(day,s);
 }
@@ -154,27 +156,27 @@ function renderRec(s){
   let cls="ok", tag="Корректировка не нужна", big="", ul=[];
   const when=s.target;
   if(s.why==="перегруз"){
-    cls="add"; tag="Добавить составы";
-    big=`Ввести ${s.k} ${plural(s.k,"состав","состава","составов")} из горячего резерва к ${when}`;
-    ul.push(`Парность ${s.plan} → ${s.new} пар/ч, интервал ${mmss(s.plan)} → ${mmss(s.new)}`);
+    cls="add"; tag=s.warn_only?"Подготовить резерв":"Добавить составы";
+    big=s.warn_only?`Выдать ${s.k} ${plural(s.k,"состав","состава","составов")} из резерва заранее: к ${when} загрузка выйдет к норме`:`Ввести ${s.k} ${plural(s.k,"состав","состава","составов")} из горячего резерва к ${when}`;
+    ul.push(`Интервал ${mmss(s.plan)} → ${mmss(s.new)} (парность ${s.plan} → ${String(s.new).replace(".",",")} пар/ч)`);
     ul.push(`Команду на выдачу из депо Автово или Северное дать сейчас: выход резерва на линию ${L.reserve_lead_min}–20 мин`);
     ul.push(`Прогноз без меры: ${perCar(s.load_hat_plan)} чел/вагон на перегоне ${s.seg}, с мерой: ${perCar(s.load_hat_new)}`);
     if(s.capped){ ul.push(`<b>Интервал ${Math.floor(L.headway_s/60)}:${L.headway_s%60} исчерпан.</b> Дополнительно: ограничить вход на станциях ${s.feeders.map(f=>`${f.station} (${Math.round(f.share*100)}% потока перегона)`).join(", ")}`); }
   } else if(s.why==="недогруз"){
     cls="cut"; tag="Снять составы";
     big=`Снять ${-s.k} ${plural(-s.k,"состав","состава","составов")} с линии к ${when}`;
-    ul.push(`Парность ${s.plan} → ${s.new} пар/ч, интервал ${mmss(s.plan)} → ${mmss(s.new)}`);
+    ul.push(`Интервал ${mmss(s.plan)} → ${mmss(s.new)} (парность ${s.plan} → ${String(s.new).replace(".",",")} пар/ч)`);
     ul.push(`Загрузка по прогнозу: ${perCar(s.load_hat_plan)} чел/вагон, после снятия ${perCar(s.load_hat_new)} (норма 120)`);
-    ul.push(`Экономия: ${(-s.k*0.25).toFixed(1)} поездо-часа на этом слоте, ресурс и энергия`);
+    ul.push(`Экономия: ${(-s.k*0.25).toFixed(1).replace('.',',')} поездо-часа на этом слоте, ресурс и энергия`);
   } else {
     big=s.anomaly.startsWith("аном")?"День аномальный, но график справляется":"График работает штатно";
     ul.push(`Прогноз загрузки ${perCar(s.load_hat_plan)} чел/вагон на перегоне ${s.seg}, норма 120`);
     if(s.anomaly.startsWith("аном")) ul.push("Поток отклоняется от нормы дня, расчётная загрузка в пределах нормы: корректировка не нужна");
   }
-  $("rec").innerHTML=`<div class="rec ${cls}"><div class="tag">${tag} · слот ${when}</div><div class="big">${big}</div><ul>${ul.map(x=>`<li>${x}</li>`).join("")}</ul></div>`;
-  $("kv").innerHTML=`<div><b>${perCar(s.load_act_plan)}</b><span>факт: чел/вагон по плану</span></div>
-   <div><b>${perCar(s.load_act_new)}</b><span>факт: чел/вагон с рекомендацией</span></div>
-   <div><b>${s.plan} → ${s.new}</b><span>пар/ч, макс. ${L.max_pairs}</span></div>
+  $("rec").innerHTML=`<div class="rec ${cls}"><div class="tag">${tag} · слот ${when} (через 30 мин)</div><div class="big">${big}</div><ul>${ul.map(x=>`<li>${x}</li>`).join("")}</ul></div>`;
+  $("kv").innerHTML=`<div><b>${perCar(s.load_act_plan)}</b><span>что было на самом деле в слоте ${when} по плану, чел/вагон</span></div>
+   <div><b>${perCar(s.load_act_new)}</b><span>что было бы с рекомендацией, чел/вагон</span></div>
+   <div><b>${s.plan} → ${s.new}</b><span>пар/ч, максимум ${String(L.max_pairs).replace('.',',')}</span></div>
    <div><b>${s.seg.split(" – ").join("–")}</b><span>самый нагруженный перегон</span></div>`;
 }
 
@@ -195,7 +197,7 @@ function renderCharts(day,s){
   let g=axis(W,H,pad,n-1,ymax,xt,[0,ymax/2,ymax].map(Math.round));
   g+=`<polyline points="${poly(day.base,n)}" fill="none" stroke="${css('--mute')}" stroke-width="2" stroke-dasharray="4 3"/>`;
   g+=`<polyline points="${poly(day.act,si+1)}" fill="none" stroke="${css('--ink')}" stroke-width="2.5"/>`;
-  const fc=s.fc.map((v,h)=>`${X(si+h+1)},${Y(v)}`); const fb=s.fb.map((v,h)=>`${X(si+h+1)},${Y(v)}`);
+  const fc=s.fc.map((v,h)=>`${X(si+h+1)},${Y(v)}`);
   g+=`<polyline points="${X(si)},${Y(day.act[si])} ${fc.join(" ")}" fill="none" stroke="${css('--accent')}" stroke-width="3"/>`;
   g+=`<line x1="${X(si)}" x2="${X(si)}" y1="${pad.t}" y2="${H-pad.b}" stroke="${css('--accent')}" stroke-width="1" stroke-dasharray="2 3"/>`;
   $("chart1").innerHTML=`<svg viewBox="0 0 ${W} ${H}">${g}</svg>`;
@@ -226,18 +228,19 @@ function renderMetrics(){
   const f=M.forecast, r=M.reactive, e=M.err;
   const pct=(a,b)=>Math.round((1-a/b)*100);
   const pd=M.days, trh=f.removed_trh/pd;
+  const nm=M.norm, pr=Math.round(f.warn_hit/f.warn*100), perDay=(f.warn/pd).toFixed(1).replace(".",",");
   const items=[
-   [`${f.over_plan} → ${f.over_new}`,"интервалов с перегрузом выше 120 чел/вагон: по графику → с рекомендациями"],
-   [`−${pct(f.ex_new,f.ex_plan)}%`,"пассажиров сверх нормы вагона за счёт добавленных составов"],
-   [`${f.warn_hit} из ${f.over_events}`,`перегрузов система предсказала за 30 мин (без прогноза: ${r.warn_hit} из ${r.over_events})`],
-   [`${(e["30"].line_ml*100).toFixed(1)}%`,`ошибка прогноза потока линии на 30 мин (по норме дня: ${(e["30"].line_base*100).toFixed(1)}%)`],
-   [`${(e["120"].line_ml*100).toFixed(1)}%`,`ошибка прогноза на 2 часа (по норме дня: ${(e["120"].line_base*100).toFixed(1)}%)`],
-   [`${trh.toFixed(0)} поездо-ч/сут`,`можно не выпускать в недогруженные часы: ${(trh/M.plan_trh_day*100).toFixed(1)}% плана ${M.plan_trh_day.toFixed(0)} поездо-ч`],
-   [`${f.under_viol}`,"случаев, когда после снятия составов вагон превысил 95% нормы"],
-   [`${f.warn-f.warn_hit}`,`лишних сигналов «добавить» за ${pd} дня; цена: ${f.added_trh.toFixed(0)} поездо-ч в сумме`],
+   [`${f.over_plan} → ${f.over_new}`,"интервалов с загрузкой выше 120 чел/вагон: по графику → с рекомендациями (по модели)"],
+   [`−${pct(f.ex_new,f.ex_plan)}%`,"пассажиров сверх нормы вагона. Предел: интервал 1:53 и 4 резервных состава, полностью перегруз не снимается"],
+   [`${f.warn_hit} из ${f.over_events}`,`перегрузов видно за 30 мин прогнозом. Норма дня без ML: ${nm.warn_hit} из ${nm.over_events}, только последний слот: ${r.warn_hit} из ${r.over_events}`],
+   [`${pr}%`,`точность сигналов: ${f.warn} сигналов «добавить» за ${pd} дня, около ${perDay} в день. У нормы дня без ML сигналов ${nm.warn}`],
+   [`${(e["30"].line_ml*100).toFixed(1)}%`,`ошибка прогноза потока линии на 30 мин (норма дня: ${(e["30"].line_base*100).toFixed(1)}%). По станциям ${(e["30"].st_ml*100).toFixed(1)}% против ${(e["30"].st_base*100).toFixed(1)}%`],
+   [`${(e["120"].line_ml*100).toFixed(1)}%`,`ошибка прогноза потока линии на 2 часа (норма дня: ${(e["120"].line_base*100).toFixed(1)}%)`],
+   [`${trh.toFixed(0)} поездо-ч/сут`,`потенциал снятия в недогруженные часы (${(trh/M.plan_trh_day*100).toFixed(1)}% плана ${M.plan_trh_day.toFixed(0)} поездо-ч). Оценка: график оборота 99 мин нужно пересчитать`],
+   [`${f.under_viol}`,"случаев, когда после снятия вагон превысил 95% нормы"],
   ];
   $("metrics").innerHTML=items.map(([a,b])=>`<div class="m"><b>${a}</b><span>${b}</span></div>`).join("");
-  $("mnote").textContent="Каждый месяц проверялся моделью, которая этот месяц не видела. Загрузка вагонов оценена моделью по входам турникетов, а не измерена. Выходные не оценивались: плановая парность выходных не передана. При другой калибровке модели число перегрузов меняется от 0 до 139, но прогноз ловит 93–99% из них, а реактивный порог не больше 15%.";
+  $("mnote").textContent="Каждый месяц проверялся моделью, которая этот месяц не видела. Загрузка вагонов оценена моделью по входам турникетов, а не измерена. Выходные не оценивались: плановая парность выходных не передана. При другой калибровке модели число перегрузов меняется от 0 до 132, но прогноз замечает 95–100% из них, а последний слот не больше 17%. Порог сигнала подобран на тех же данных.";
   const rows=[["Мин. интервал",`${Math.floor(L.headway_s/60)}:${L.headway_s%60} (макс. ${L.max_pairs} пар/ч)`],["Составов на линии","до "+L.max_trains+", оборот "+L.turnover+" мин"],["Норма населённости",L.norm_car+" чел/вагон, "+L.cars+" вагонов"],["Резерв",L.reserve+" состава: по 2 в депо Автово и Северное, выход 15–20 мин"],["Снятие составов","не ниже макс. интервала из графика с 01.09.2026 и не больше 25% плана за слот"],["Решение","принимает диспетчер, система только рекомендует"]];
   $("limits").innerHTML=rows.map(([a,b])=>`<tr><th>${a}</th><td>${b}</td></tr>`).join("");
 }

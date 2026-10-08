@@ -3,7 +3,7 @@ import math
 import numpy as np
 from core import *
 
-WARN_UTIL = 0.90              # прогноз выше 92% нормы -> сигнал (запас на ошибку прогноза)
+WARN_UTIL = 0.85              # прогноз выше 85% нормы -> сигнал; порог выбран по thresholds.json (охват 11 из 11)
 UTIL_TARGET = 0.95            # после коррекции расчётная загрузка не выше 95% нормы
 LOW_UTIL = 0.40               # ниже 40% нормы на самом нагруженном перегоне: можно снять составы
 SAFE_AFTER_REMOVE = 0.80      # после снятия не выше 80% нормы
@@ -47,3 +47,18 @@ def recommend(peak_flow, plan_pairs_h, hour=12, reserve=RESERVE_TRAINS):
         k = -int(math.floor((plan_pairs_h - new_pairs) * TRAINS_PER_PAIR + 1e-9))
         return k, plan_pairs_h + k / TRAINS_PER_PAIR, "недогруз"
     return 0, plan_pairs_h, "норма"
+
+
+def smooth_removals(whys, ks, plans):
+    """Снятие составов только если сигнал держится >=2 из 3 слотов подряд; k берётся наименьший по модулю.
+    Считается по исходным (несглаженным) сигналам, поэтому слот не влияет на соседей."""
+    out_k, out_why = list(ks), list(whys)
+    for i, w in enumerate(whys):
+        if w != "недогруз":
+            continue
+        win = [ks[j] for j in range(max(0, i - 2), i + 1) if whys[j] == "недогруз"]
+        if len(win) < 2:
+            out_k[i], out_why[i] = 0, "норма"
+        else:
+            out_k[i] = max(win)
+    return out_why, out_k

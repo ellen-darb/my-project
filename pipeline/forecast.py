@@ -18,7 +18,7 @@ def recent_ratio(X, B, d, s, k=None, n=4):
 def feats(days, X, B, d, s, h, k, lr4, lr1, sr4):
     t = s + h
     return [B[d, t, k], B[d, s, k], lr4, lr1, sr4, h, SLOTS[s] / 60.0, SLOTS[t] / 60.0, k,
-            CODE[day_type(days[d])], days[d].month, B[d, t].sum()]
+            CODE[day_type(days[d])], B[d, t].sum()]
 
 
 def build(days, X, B, didx, s_range=None):

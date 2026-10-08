@@ -68,6 +68,7 @@ def day_group(t):
 
 
 def baseline(days, X, exclude=None, season=True):
+    """season=False: база по другим месяцам (одинаково для обучающих и проверяемых дней)."""
     """База [день, слот, станция]: медиана по дням той же группы (кроме самого дня).
     Сезонность учитывается через ближайшие по месяцу дни, если их >=3."""
     grp = np.array([day_group(day_type(d)) for d in days])
@@ -78,7 +79,7 @@ def baseline(days, X, exclude=None, season=True):
         if exclude is not None:
             mask &= ~exclude
         same_m = mask & (mon == mon[i])
-        use = same_m if same_m.sum() >= 3 else mask
+        use = same_m if (season and same_m.sum() >= 3) else (mask & (mon != mon[i]))
         B[i] = np.median(X[use], axis=0)
     return B
 

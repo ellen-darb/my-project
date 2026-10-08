@@ -10,7 +10,7 @@ PRED = np.full((len(days), S, 9, N), np.nan, dtype=np.float32)   # [день, с
 BASE_ALL = np.zeros_like(X)
 for mth in sorted(set(d.month for d in days)):
     test = np.array([d.month == mth for d in days])
-    B = baseline(days, X, exclude=test)
+    B = baseline(days, X, exclude=test, season=False)
     BASE_ALL[test] = B[test]
     tr, te = np.where(~test)[0], np.where(test)[0]
     Rtr, ytr, mtr = build(days, X, B, tr)
