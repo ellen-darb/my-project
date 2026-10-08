@@ -2,6 +2,7 @@ import * as d3 from "d3";
 import { load, fmt, sgnPct, hhmm, slotStr, dayLong, weekday, weekdayS, parseDay, monthName, SCHED_TITLE,
   forecastEntries, tipShow, tipHide, loadColor, dec } from "../lib/util.js";
 import { drawMarey } from "../lib/marey.js";
+import { drawLineMap, mapColor } from "../lib/linemap.js";
 import { sectorChart, pairsChart } from "../lib/charts.js";
 
 const PRESETS = [
@@ -22,7 +23,7 @@ const ICON = { hold: "=", add: "+", cut: "−", limit: "!", watch: "i" };
 const SECT = { north: "Север → центр", south: "Юг → центр", line: "Вся линия" };
 const GROUP = { "mon-thu": "будний день", fri: "пятница", sat: "суббота", sun: "воскресенье или праздник" };
 
-let state = { d: "2026-09-15", t: 28, mode: "sys", timer: null };
+let state = { d: "2026-09-15", t: 28, mode: "sys", off: 0, timer: null };
 
 export async function render(app, params) {
   if (params.get("d")) state.d = params.get("d");
@@ -31,7 +32,7 @@ export async function render(app, params) {
   let seen = false;
   try { seen = localStorage.getItem("takt-hint") === "1"; } catch (e) { /* хранилище недоступно */ }
   app.innerHTML = `
-  ${seen ? "" : `<div class="hint" id="p-hint"><div><b>Реальный день по турникетам.</b> Такт видит только прошлое до «Сейчас». Цвет нитки — сколько человек в составе, справа — совет диспетчеру. Нажмите «Проиграть».</div><button class="btn" id="p-hint-x">Понятно</button></div>`}
+  ${seen ? "" : `<div class="hint" id="p-hint"><div><b>Реальный день по турникетам.</b> Слева схема линии: чем толще и краснее линия, тем теснее в составах. Справа совет диспетчеру. Нажмите «Проиграть».</div><button class="btn" id="p-hint-x">Понятно</button></div>`}
   <div class="pult-head">
     <div class="pult-day"><p class="kicker">Пульт диспетчера · линия 1 · проигрывание реального дня</p><h1 id="p-day"></h1><div class="meta" id="p-meta"></div><button class="btn" id="p-csv" hidden style="margin-top:10px">Скачать рекомендации дня, CSV</button></div>
     <div class="clock"><small>Сейчас</small><span id="p-clock"></span></div>
@@ -46,19 +47,22 @@ export async function render(app, params) {
   <div class="pult-grid">
     <div class="left">
       <div class="chart-title">
-        <h3>График движения и загрузка составов: час назад и два часа вперёд</h3>
-        <div class="seg" id="p-mode"><button data-m="plan">По графику</button><button data-m="sys">С мерами Такта</button></div>
+        <h3 id="p-map-t">Линия 1 сейчас</h3>
+        <div class="seg" id="p-off">${[0, 30, 60, 90, 120].map(o => `<button data-o="${o}">${o ? `+${o}<span class="u"> мин</span>` : "Сейчас"}</button>`).join("")}</div>
       </div>
-      <div class="legend" style="margin-bottom:6px">
-        <span>чел. в составе к центру:</span>
-        <span>0<span class="scale" id="p-scale"></span>1 458</span>
-        <span><i style="background:var(--unknown)"></i>центр и выезд: по турникетам не оценить</span>
+      <div class="lm-legend">
+        <span class="lm-k"><b>Линия</b> — человек в составе к центру</span>
+        <span class="lm-scale"><span>свободно</span><span class="scale" id="p-scale"></span><span>битком</span></span>
+        <span class="lm-k"><b>Полоска</b> — вошло за час, черта — сколько обычно</span>
       </div>
-      <div id="p-marey"></div>
+      <div id="p-map"></div>
+      <div class="seg" id="p-mode" style="margin-top:14px"><button data-m="plan">По графику</button><button data-m="sys">С советами Такта</button></div>
     </div>
     <div class="right" id="p-dec"></div>
   </div>
-  <details class="more" id="p-more"><summary>Поток к центру и парность за весь день</summary>
+  <details class="more" id="p-more"><summary>Подробно: график движения, поток и парность за день</summary>
+  <div class="chart-title"><h3>График движения: час назад и два часа вперёд</h3></div>
+  <div id="p-marey"></div>
   <div class="sectors">
     <div><div class="chart-title"><h3>Север → центр</h3><span class="note">перегон Пл. Ленина → Чернышевская</span></div><div id="p-north"></div></div>
     <div><div class="chart-title"><h3>Юг → центр</h3><span class="note">перегон Нарвская → Балтийская</span></div><div id="p-south"></div></div>
@@ -83,7 +87,7 @@ export async function render(app, params) {
 
   // шкалы легенды
   const sc = d3.select("#p-scale");
-  d3.range(0, 1459, 40).forEach(v => sc.append("span").style("flex", 1).style("background", loadColor(v)));
+  d3.range(0, 1459, 40).forEach(v => sc.append("span").style("flex", 1).style("background", mapColor(v)));
   const maxOver = d3.max(days, d => d.over);
   const dcol = v => v <= 0 ? "var(--rule-2)" : d3.interpolateRgb("#F6D3CF", "#8A0026")(Math.sqrt(v / maxOver));
   const ds = d3.select("#p-dscale");
@@ -150,6 +154,7 @@ export async function render(app, params) {
     }, 900);
   };
   function stop() { clearInterval(state.timer); state.timer = null; play.textContent = "▶ Проиграть"; }
+  document.querySelectorAll("#p-off button").forEach(b => b.onclick = () => { state.off = +b.dataset.o; draw(false); });
   document.querySelectorAll("#p-mode button").forEach(b => b.onclick = () => { state.mode = b.dataset.m; draw(false); });
 
   let day = null;
@@ -171,13 +176,17 @@ export async function render(app, params) {
     const pairs = state.mode === "sys" ? day.sys : day.plan;
     const E = forecastEntries(day.x, day.b, t, meta.w_ratio);
     const entriesAt = s => (s <= t ? day.x[s] : E[s]);
-    drawMarey(document.getElementById("p-marey"), { day, meta, nowMin: (t + 1) * 15, pairs, entriesAt,
-      height: innerWidth < 640 ? 460 : 540 });
+    const off = state.off || 0, tm = (t + 1) * 15 + off;
+    document.querySelectorAll("#p-off button").forEach(b => b.classList.toggle("on", +b.dataset.o === off));
+    document.getElementById("p-map-t").innerHTML = off ? `Линия 1 в ${hhmm(tm)} <span class="lm-fc">прогноз</span>` : `Линия 1 сейчас, ${hhmm(tm)}`;
+    drawLineMap(document.getElementById("p-map"), { meta, timeMin: tm, pairs, entriesAt, base: day.b });
 
     const dc = day.dec[t - 24];
     renderDecision(document.getElementById("p-dec"), dc, day, meta, t);
 
     if (!document.getElementById("p-more").open) return;
+    drawMarey(document.getElementById("p-marey"), { day, meta, nowMin: (t + 1) * 15, pairs, entriesAt,
+      height: innerWidth < 640 ? 460 : 540 });
     const band = d3.range(1, 9).map(h => [fcst.q[h * 15][1], fcst.q[h * 15][3]]);
     const compact = innerWidth < 640;
     for (const s of ["north", "south"]) {

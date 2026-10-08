@@ -122,7 +122,7 @@ p { max-width: 72ch; }
 /* эффект меры */
 .gain { margin-top: 14px; padding: 12px 14px; background: color-mix(in srgb, var(--blue) 10%, var(--paper)); border-radius: 6px; }
 .gain-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
-.gain-row div { font-size: 22px; font-weight: 700; letter-spacing: -0.01em; }
+.gain-row div { font-size: 19px; white-space: nowrap; font-weight: 700; letter-spacing: -0.01em; }
 .gain-row span { color: var(--ink-3); font-weight: 500; }
 .gain-row b { color: var(--blue); }
 .gain-row small { display: block; font-size: 12px; font-weight: 500; color: var(--ink-2); letter-spacing: 0; }
@@ -299,3 +299,20 @@ details.more[open] > summary::before { content: "−"; }
 @media (max-width: 640px) { .statline { font-size: 18px; } }
 .sw { display: inline-block; width: 12px; height: 12px; border-radius: 2px; vertical-align: -1px; margin: 0 2px; }
 .measure .mnote { display: block; margin-top: 6px; font-size: 13px; color: var(--ink-2); border-left: 2px solid var(--rule); padding-left: 8px; }
+
+/* схема линии */
+.lm-legend { display: flex; flex-wrap: wrap; gap: 6px 22px; font-size: 13px; color: var(--ink-2); margin: 4px 0 12px; align-items: center; }
+.lm-legend .lm-scale { display: inline-flex; gap: 8px; align-items: center; font-size: 12px; color: var(--ink-3); }
+.lm-legend .lm-scale .scale { width: 140px; }
+.linemap .lm-st { font-size: 14px; fill: var(--ink); }
+.linemap .lm-st.key { font-weight: 700; }
+.linemap .lm-num { font-size: 13px; font-weight: 600; fill: var(--ink-2); font-variant-numeric: tabular-nums; }
+.linemap .lm-num.hot { fill: var(--red-ink); font-weight: 800; }
+.linemap .lm-dev { font-size: 12.5px; fill: var(--ink-3); font-variant-numeric: tabular-nums; }
+.lm-fc { font-size: 12px; font-weight: 600; color: var(--amber); border: 1px solid currentColor; border-radius: 99px; padding: 1px 8px; margin-left: 6px; vertical-align: 2px; }
+@media (max-width: 640px) { .linemap .lm-st { font-size: 12.5px; } .lm-legend .lm-scale .scale { width: 100px; } }
+.linemap .lm-zone { font-size: 11px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; fill: var(--ink-3); }
+.linemap .lm-dev.up { fill: var(--red-ink); font-weight: 700; }
+.linemap .lm-dev.dn { fill: var(--blue); font-weight: 700; }
+#p-off button { white-space: nowrap; }
+@media (max-width: 640px) { #p-off .u { display: none; } }
