@@ -2,7 +2,7 @@ import { load, fmt, dec } from "../lib/util.js";
 
 export async function render(app) {
   const meta = await load("meta.json");
-  const c = meta.c;
+  const c = meta.c, q = meta.quality;
   app.innerHTML = `
   <div class="lede"><div>
     <p class="kicker">Методика и данные</p>
@@ -51,6 +51,33 @@ export async function render(app) {
           <tr><td>Резерв выходит за 20 мин (по файлу 15–20, в чате 7)</td><td>Взято худшее; при 7 мин резерв успевает чаще.</td></tr>
         </tbody>
       </table>
+    </div>
+  </div>
+
+  <div class="section cols-2">
+    <div>
+      <h2>Проверка данных</h2>
+      <table class="t">
+        <tbody>
+          <tr><td>15-минутный файл</td><td class="r">${fmt(q.rows_15)} строк · ${q.vest_15} вестибюля · ${q.days_15} дней</td></tr>
+          <tr><td>Пропуски и отрицательные значения</td><td class="r">${q.na_15} и ${q.neg_15}</td></tr>
+          <tr><td>Станция-день без входов 07–21 ч</td><td class="r">${q.zero_station_days_15}</td></tr>
+          <tr><td>Часовой файл</td><td class="r">${fmt(q.rows_h)} строк · ${q.vest_h} вестибюля · ${q.days_h} дня</td></tr>
+          <tr><td>Нет в часовом файле</td><td class="r">${q.missing_h.join(", ") || "—"}: берём из 15-минутного с поправкой на уровень линии</td></tr>
+          <tr><td>Сумма за день: 15-минутный против часового, ${q.match_days} общих дней</td><td class="r">расхождение ${dec(q.match_median * 100, 1)}% медиана, ${dec(q.match_max * 100, 1)}% максимум</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div>
+      <h2>Автоматические проверки</h2>
+      <p><code>python3 -m pytest tests</code> проверяет на всех 120 днях:</p>
+      <ul class="src-list" style="font-size:15px;color:var(--ink)">
+        <li>парность с мерами не выше 31,9 пары/ч и не больше 53 составов на линии;</li>
+        <li>снятие составов не выходит за максимальный интервал графика;</li>
+        <li>прогноз не меняется, если подменить будущее после момента прогноза;</li>
+        <li>«обычный день» не меняется, если подменить дни после целевого;</li>
+        <li>в выходные составы не добавляются, пока загрузка ниже 85% нормы.</li>
+      </ul>
     </div>
   </div>
 

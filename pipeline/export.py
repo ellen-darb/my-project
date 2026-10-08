@@ -49,6 +49,7 @@ def main():
               "run_one_way": line.RUN_ONE_WAY_MIN, "line_km": line.LINE_KM},
         "w_ratio": simulate.W_RATIO,
     }
+    meta["quality"] = quality(days, X, hdays, H)
     dump("meta.json", meta)
 
     # ---------- проигрывание дней ----------
@@ -241,6 +242,27 @@ def main():
     E = json.load(open(os.path.join(OUT, "effect.json")))
     dump("economics.json", economics.run(E["days"], cal))
     print("готово", round(time.time() - t0, 1), "с")
+
+
+def quality(days, X, hdays, H):
+    """Проверка данных: пропуски, нули, согласованность 15-минутного и часового файлов."""
+    q = pd.read_csv(os.path.join(data.ROOT, "data", "entries_15min.csv.gz"))
+    h = pd.read_csv(os.path.join(data.ROOT, "data", "entries_hourly.csv.gz"))
+    tech = line.STATIONS.index("Технологический ин-т")
+    m = (data.SLOTS >= 420) & (data.SLOTS < 1260)
+    hset = {d: j for j, d in enumerate(hdays)}
+    diff = []
+    for i, d in enumerate(days):
+        if d in hset:
+            a = np.delete(X[i].reshape(24, 4, -1).sum(1), tech, axis=1).sum()
+            b = np.delete(H[hset[d]], tech, axis=1).sum()
+            diff.append(abs(a - b) / b)
+    return {"rows_15": len(q), "vest_15": int(q.vestibule.nunique()), "days_15": int(q.date.nunique()),
+            "na_15": int(q.entries.isna().sum()), "neg_15": int((q.entries < 0).sum()),
+            "zero_station_days_15": int((X[:, m, :].sum(1) == 0).sum()),
+            "rows_h": len(h), "vest_h": int(h.vestibule.nunique()), "days_h": len(hdays),
+            "missing_h": ["Технологический ин-т"] if (H[:, :, tech].sum() == 0) else [],
+            "match_days": len(diff), "match_median": round(float(np.median(diff)), 4), "match_max": round(float(np.max(diff)), 4)}
 
 
 def alpha_sensitivity(days, X, B):
