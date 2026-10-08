@@ -6,19 +6,13 @@ let sel = "2026-08-31";
 
 export async function render(app, params) {
   if (params.get("d")) sel = params.get("d");
-  const [meta, cal, eco, hourly, days] = await Promise.all([load("meta.json"), load("calendar.json"), load("economics.json"), load("hourly.json"), load("days.json")]);
-  const A = eco.anomaly, S = eco.anomaly_sens;
-  const lbl = A.rate;
+  const [meta, cal, hourly, days] = await Promise.all([load("meta.json"), load("calendar.json"), load("hourly.json"), load("days.json")]);
   app.innerHTML = `
   <div class="lede"><div>
-    <p class="kicker">Аномалии · январь–сентябрь 2026, почасовой файл турникетов</p>
-    <h1>Около ${Math.round(A.per_year)} дней в году поток идёт не так, как рассчитан график</h1>
-    <p class="sub">Аномалия — то, что нельзя заложить в график заранее: сбой, закрытие станции, погода, неожиданный всплеск. Праздники, кануны праздников и рост потока перед 1 сентября — плановые и сюда не входят. Мероприятие у одной станции тоже не аномалия: на календаре оно отмечено отдельно.</p>
+    <p class="kicker">Январь–сентябрь 2026</p>
+    <h1>Каждый день линии: где поток пошёл не так, как обычно</h1>
+    <p class="sub">Выберите день, чтобы увидеть, на каких станциях и в какие часы поток отличался, и что предложил Такт. Праздники и их кануны серые: они заложены в график заранее.</p>
   </div></div>
-
-  <div class="section">
-    <p class="statline">За девять месяцев — <b>${A.anomalous_days}</b> аномальных дней из ${A.unplanned_days} неплановых: поток два часа подряд на 12% выше или ниже обычного по линии или сектору. В пересчёте на год это <b>${Math.round(A.per_year)}</b> дней; при пороге 15% — ${S[2].per_year}, при 10% — ${S[0].per_year}. В выходные поток скачет сильнее: аномальны <b>${pct(lbl.weekend.surge + lbl.weekend.drop)}</b> выходных против ${pct(lbl.weekday.surge + lbl.weekday.drop)} будних.</p>
-  </div>
 
   <div class="section">
     <div class="chart-title"><h3>Календарь: отклонение дневного потока 07–22 ч от обычного дня</h3>

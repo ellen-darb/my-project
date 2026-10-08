@@ -6,13 +6,13 @@ const SECT = [["north", "Север → центр"], ["south", "Юг → цен
 let st = { s: "weekday_sep", sec: "north" };
 
 export async function render(app) {
-  const [meta, fit, eco] = await Promise.all([load("meta.json"), load("schedule_fit.json"), load("economics.json")]);
+  const [meta, fit] = await Promise.all([load("meta.json"), load("schedule_fit.json")]);
   const pr = fit.weekday_sep.proposal;
   const f = fit.weekday_sep;
   const k9 = 36;
   app.innerHTML = `
   <div class="lede"><div>
-    <p class="kicker">График и спрос · находка сверх ТЗ, для службы листа графика</p>
+    <p class="kicker">Для службы, которая составляет график</p>
     <h1>Утром составов с севера не хватает каждый будний день. Так устроен сам график.</h1>
     <p class="sub">С 07:45 до 09:30 в составе к центру с севера в среднем больше 960 человек. Добавить составы в 08:00 нельзя: на линии уже 53 из 53 при интервале 1:53. Но в 09:00 график снимает 6 пар, а поток к этому времени ещё ${fmt(f.north.p50[k9])} человек на состав.</p>
   </div></div>
@@ -33,7 +33,7 @@ export async function render(app) {
       <span id="pl-n" class="note"></span>
     </div>
     <div id="pl-load"></div>
-    <p class="note">Это направление к центру. Вечером тяжёлое направление обратное, из центра, и по входам на турникетах его не оценить: выходов по станциям в данных нет.</p>
+    
     <div class="chart-title" style="margin-top:14px"><h3>Парность по листу графика</h3>
       <span class="legend"><span><i style="background:var(--ink)"></i>лист графика</span><span id="pl-need-l"><i style="background:var(--blue)"></i>предложение Такта</span></span></div>
     <div id="pl-pairs"></div>
@@ -41,40 +41,21 @@ export async function render(app) {
 
   <div class="section">
     <div class="sec-head">
-      <div><p class="kicker">Предложение к листу «рабочий с 01.09»</p><h2>Снимать составы после 09:30, а не в 09:00</h2></div>
-      <p>Парность подобрана на ${pr.fit_days} будних днях февраля и мая так, чтобы медианный день укладывался в норму, и проверена на ${pr.test_days} будних днях сентября, которые в подбор не входили. Составы для этого уже на линии: в 08:00 их 53, предложение их просто дольше не уводит в депо.</p>
+      <div><h2>Предлагаем: снимать составы после 09:30, а не в 09:00</h2></div>
+      <p>Составы для этого уже на линии, их просто дольше не уводят в депо. Парность подобрана так, чтобы обычный будний день укладывался в норму.</p>
     </div>
     <div class="big-row">
-      <div class="big"><div class="v">+${dec(pr.extra_train_h_day)}</div><div class="k">поездо-часа в будний день</div><div class="src">разница составов на линии × 15 мин</div></div>
-      <div class="big"><div class="v">−${Math.round((1 - pr.over_new_day / pr.over_plan_day) * 100)}<small>%</small></div><div class="k">пассажиров сверх нормы: ${fmt(pr.over_plan_day)} → ${fmt(pr.over_new_day)} в день</div><div class="src">сентябрь, фактические турникеты</div></div>
-      <div class="big"><div class="v">${fmt(pr.wait_saved_h_day)}</div><div class="k">пассажиро-часов ожидания меньше в день</div><div class="src">ожидание = половина интервала</div></div>
+      <div class="big"><div class="v">−${Math.round((1 - pr.over_new_day / pr.over_plan_day) * 100)}<small>%</small></div><div class="k">пассажиров сверх нормы в будний день</div></div>
+      <div class="big"><div class="v">${fmt(pr.wait_saved_h_day)}</div><div class="k">часов ожидания меньше в день на всех пассажиров</div></div>
+      <div class="big"><div class="v">+${dec(pr.extra_train_h_day)}</div><div class="k">поездо-часа в день</div></div>
     </div>
-    <details class="more" style="margin-top:24px"><summary>Все изменения листа графика по интервалам</summary><table class="t" id="pl-tab"></table></details>
-  </div>
-
-  <div class="section">
-    <div class="sec-head">
-      <div><h2>Чем дольше держать составы, тем меньше ждут, но давка уходит не вся</h2></div>
-      <p>Пассажиров сверх нормы считаем через долю α тех, кто едет к центру. Её не измеряли, поэтому даём три значения. Время ожидания от α не зависит, это самый надёжный эффект.</p>
-    </div>
-    <table class="t" id="pl-var"></table>
-    <div class="cols-2" style="margin-top:20px">
-      <div class="callout"><b>Время пассажиров покрывает цену, но впритык</b>Предложение стоит ${fmt(pr.extra_train_h_day * eco.unit.add_train_h.base / 1000)} тыс. ₽ в будний день по предельной цене поездо-часа. Пассажиры ждут меньше на ${fmt(pr.wait_saved_h_day)} часов, это ${fmt(pr.wait_saved_h_day * eco.time_value.vot / 1000)} тыс. ₽ по оценке часа поездки ${eco.time_value.vot} ₽ (ВШЭ, Москва) или ${fmt(pr.wait_saved_h_day * eco.time_value.vot_cons / 1000)} тыс. ₽ консервативно. Давка сверх нормы, ради которой всё затевается, в эти рубли не входит.</div>
-      <div class="callout"><b>Что проверить до внедрения</b>В данных нет смен машинистов и окон осмотра составов в депо. Удержание 4–6 пар на 30 минут значит 7–10 составов и машинистов, которые уходят с линии позже. Если смены не позволяют, вариант «до 09:15» даёт половину эффекта по ожиданию за половину цены и около двух третей эффекта по давке.</div>
-    </div>
+    <h3 style="margin-top:28px">Что поменять в листе графика «рабочий с 01.09»</h3>
+    <table class="t" id="pl-tab"></table>
   </div>`;
-
-  // варианты удержания
-  const V = f.variants, cost = eco.unit.add_train_h.base, vot = eco.time_value.vot;
-  const red = (o) => o.over_plan ? `−${Math.round((1 - o.over_new / o.over_plan) * 100)}%` : "—";
-  const vrow = (name, th, wh, a75, a85, a89, cls = "") => `<tr${cls}><td>${name}</td><td class="r">+${dec(th)}</td><td class="r">${fmt(th * cost / 1000)}</td><td class="r">${fmt(wh)}</td><td class="r">${fmt(wh * vot / 1000)}</td><td class="r">${a75}</td><td class="r">${a85}</td><td class="r">${a89}</td></tr>`;
-  document.getElementById("pl-var").innerHTML = `<thead><tr><th>Держать утреннюю парность ${dec(V.peak, 0)} пар/ч</th><th class="r">Поездо-часов в день</th><th class="r">Стоит, тыс. ₽</th><th class="r">Ожидания меньше, пасс.-ч</th><th class="r">Это стоит, тыс. ₽</th><th class="r">Сверх нормы при доле 0,75</th><th class="r">0,85</th><th class="r">0,89</th></tr></thead><tbody>${
-    V.rows.filter(r => r.until !== null && r.until > V.from).map(r => vrow(`до ${hhmm(r.until * 15)}`, r.train_h_day, r.wait_h_day, red(r["0.75"]), red(r["0.85"]), red(r["0.89"]))).join("")
-  }${(r => vrow("<b>Предложение Такта</b>: по потоку, до 09:30", r.train_h_day, r.wait_h_day, red(r["0.75"]), red(r["0.85"]), red(r["0.89"]), ' class="hl"'))(V.rows.find(r => r.until === null))}</tbody>`;
 
   // таблица изменений
   const changes = d3.range(96).filter(k => f.need[k] !== f.pairs[k]);
-  document.getElementById("pl-tab").innerHTML = `<thead><tr><th>Интервал</th><th class="r">Сейчас, пар/ч</th><th class="r">Предлагаем</th><th class="r">Составов</th><th class="r">Медиана к центру с севера</th><th class="r">При предложении</th></tr></thead><tbody>${changes.map(k => `<tr><td>${hhmm(k * 15)}–${hhmm(k * 15 + 15)}</td><td class="r">${f.pairs[k]}</td><td class="r"><b>${f.need[k]}</b></td><td class="r">+${Math.round(f.need[k] * 99 / 60) - Math.round(f.pairs[k] * 99 / 60)}</td><td class="r">${fmt(f.north.p50[k])}</td><td class="r">${fmt(f.north.p50[k] * f.pairs[k] / f.need[k])}</td></tr>`).join("")}</tbody>`;
+  document.getElementById("pl-tab").innerHTML = `<thead><tr><th>Интервал</th><th class="r">Сейчас, пар/ч</th><th class="r">Предлагаем</th><th class="r">Составов</th><th class="r">Человек в составе с севера сейчас</th><th class="r">При предложении</th></tr></thead><tbody>${changes.map(k => `<tr><td>${hhmm(k * 15)}–${hhmm(k * 15 + 15)}</td><td class="r">${f.pairs[k]}</td><td class="r"><b>${f.need[k]}</b></td><td class="r">+${Math.round(f.need[k] * 99 / 60) - Math.round(f.pairs[k] * 99 / 60)}</td><td class="r">${fmt(f.north.p50[k])}</td><td class="r">${fmt(f.north.p50[k] * f.pairs[k] / f.need[k])}</td></tr>`).join("")}</tbody>`;
 
   const draw = () => {
     document.querySelectorAll("#pl-s button").forEach(b => b.classList.toggle("on", b.dataset.k === st.s));

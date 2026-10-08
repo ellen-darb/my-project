@@ -4,10 +4,7 @@ import { resetPalette } from "./lib/util.js";
 const TABS = {
   pult: () => import("./tabs/pult.js"),
   plan: () => import("./tabs/plan.js"),
-  forecast: () => import("./tabs/forecast.js"),
   anomalies: () => import("./tabs/anomalies.js"),
-  effect: () => import("./tabs/effect.js"),
-  method: () => import("./tabs/method.js"),
 };
 
 const app = document.getElementById("app");
