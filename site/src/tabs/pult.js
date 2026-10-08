@@ -9,7 +9,7 @@ const PRESETS = [
   { d: "2026-02-26", t: 27, label: "26.02 · поток выше обычного" },
   { d: "2026-05-08", t: 64, label: "08.05 · канун праздника, линия на пределе" },
   { d: "2026-07-21", t: 40, label: "21.07 · летом поток ниже, можно снять" },
-  { d: "2026-09-12", t: 52, label: "12.09 · суббота, всплеск у Пл. Восстания" },
+  { d: "2026-09-12", t: 52, label: "12.09 · суббота +24%, но составы не нужны" },
 ];
 
 const STATUS = {
@@ -206,6 +206,17 @@ function renderDecision(node, dc, day, meta, t) {
     : `<li class="measure"><div class="ic">✓</div><div><b>Действовать по графику</b><span>меры не нужны</span></div></li>`;
   const checks = dc.ck ? `<ul class="checks">${dc.ck.map(c => `<li><span class="${c.ok ? "y" : "n"}">${c.ok ? "✓" : "✕"}</span><span>${c.rule}</span><em>${c.note}</em></li>`).join("")}</ul>` : "";
   const P = day.sys[t + 1], trains = Math.round(P * meta.c.turnover / 60);
+  let gain = "";
+  if (w && (w.sector === "north" || w.sector === "south") && dc.m.some(m => m.type === "hold" || m.type === "add")) {
+    const ks = d3.range(w.from, w.to + 1);
+    const over = (L, pp) => d3.sum(ks, k => Math.max(L[k] - meta.c.norm, 0) * pp[k] / 4);
+    const a = day.load_plan[w.sector], b = day.load_sys[w.sector];
+    const oa = over(a, day.plan), ob = over(b, day.sys);
+    gain = `<div class="gain"><p class="kicker" style="margin:0 0 6px">Что дали меры в этот день</p>
+      <div class="gain-row"><div><span class="num">${fmt(d3.max(ks, k => a[k]))}</span> → <b class="num">${fmt(d3.max(ks, k => b[k]))}</b><small>пик, чел. в составе</small></div>
+      <div><span class="num">${fmt(oa)}</span> → <b class="num">${fmt(ob)}</b><small>пассажиров сверх нормы за окно</small></div></div>
+      <p class="note" style="margin:6px 0 0">По фактическому потоку этого дня, ${slotStr(w.from)}–${slotStr(w.to + 1)}.</p></div>`;
+  }
   node.innerHTML = `
     <div class="verdict">
       <span class="status" style="color:${st.c}"><span class="dot" style="background:${st.c}"></span>${st.label}</span>
@@ -214,6 +225,7 @@ function renderDecision(node, dc, day, meta, t) {
     </div>
     <p class="kicker" style="margin:16px 0 0">Что сделать</p>
     <ul class="measures">${ms}</ul>
+    ${gain}
     ${checks ? `<p class="kicker" style="margin:16px 0 0">Ограничения линии</p>${checks}` : ""}
     <div class="facts">
       <div class="fact"><div class="v">${sgnPct(dc.lr - 1)}</div><div class="k">поток за час к обычному дню</div></div>

@@ -130,7 +130,7 @@ def decide(pairs, weekend, E, Bd, t, line_ratio, plan=None):
                 "text": text,
                 "why": ("резерв выходит за 15–20 мин и успевает" if on_time else
                         f"перегрузка через {lead} мин: резерв успеет только к {t_str(t + line.HOT_LEAD_MIN // 15 + 1)}")})
-        if out["status"] == "anomaly" and add <= 0:
+        if add <= 0 and (out["status"] == "anomaly" or not out["measures"]):
             out["measures"].append({"type": "limit",
                                     "text": "Составы не добавить: линия на пределе пропускной способности",
                                     "why": "предупредить станции сектора и подготовить регулирование входа на самых загруженных вестибюлях"})
