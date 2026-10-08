@@ -45,7 +45,7 @@ def main():
         "c": {"min_headway_s": line.MIN_HEADWAY_S, "max_pairs": round(line.MAX_PAIRS, 1), "max_trains": line.MAX_TRAINS,
               "turnover": line.TURNOVER_MIN, "cars": line.CARS, "norm_car": line.NORM_PER_CAR, "norm": line.NORM_TRAIN,
               "max_train": line.MAX_TRAIN, "hot_reserve": line.HOT_RESERVE, "hot_lead": line.HOT_LEAD_MIN,
-              "cold_lead": line.COLD_LEAD_MIN, "alpha": line.ALPHA, "alpha_range": line.ALPHA_RANGE,
+              "cold_lead": line.COLD_LEAD_MIN, "alpha": line.ALPHA, "alpha_range": line.ALPHA_RANGE, "alpha_est": alpha_estimate(hdays, H),
               "run_one_way": line.RUN_ONE_WAY_MIN, "line_km": line.LINE_KM},
         "w_ratio": simulate.W_RATIO,
     }
@@ -237,6 +237,7 @@ def main():
         "over_new_day": round(float(np.mean([e["system"]["over_pax"] for e in ev]))),
         "wait_saved_h_day": round(float(np.mean([(e["plan"]["wait_min"] - e["system"]["wait_min"]) / 60 for e in ev])), 1)}
     print(fit["weekday_sep"]["proposal"], [(k, plan[k], need[k]) for k in range(96) if need[k] != plan[k]])
+    fit["weekday_sep"]["variants"] = proposal_variants(days, X, ds, need)
     dump("schedule_fit.json", fit)
     import economics
     E = json.load(open(os.path.join(OUT, "effect.json")))
@@ -266,16 +267,68 @@ def quality(days, X, hdays, H):
 
 
 def alpha_sensitivity(days, X, B):
-    """Как меняется число перегруженных интервалов и эффект при доле α от 0,75 до 1,0."""
+    """Как меняются перегрузка и эффект Такта при доле α: 0,75 … оценка сверху по данным … 1,0.
+    Решения принимаются и оцениваются при одном и том же α — так видно, что от α зависит, а что нет."""
     out = []
-    for a in (0.75, 0.85, 1.0):
-        n_over = 0
+    for a in (0.75, 0.85, 0.89, 1.0):
+        engine.section_flow.__defaults__ = (a,)
+        n_over = 0; op = os_ = th = w = 0.0
         for i, d in enumerate(days):
             plan = engine.pairs_profile(line.schedule_for(d))
             for s in ("north", "south"):
-                n_over += int((engine.per_train(engine.section_flow(X[i], s, a), plan) > engine.NORM).sum())
-        out.append({"alpha": a, "over_slots": n_over})
+                n_over += int((engine.per_train(engine.section_flow(X[i], s), plan) > engine.NORM).sum())
+            _, plan_, P, _ = simulate.run_day(d, X[i], B[i])
+            ef = simulate.effect(X[i], plan_, P)
+            op += ef["plan"]["over_pax"]; os_ += ef["system"]["over_pax"]
+            th += ef["system"]["train_h"] - ef["plan"]["train_h"]; w += (ef["plan"]["wait_min"] - ef["system"]["wait_min"]) / 60
+        out.append({"alpha": a, "over_slots": n_over, "over_plan": round(op), "over_sys": round(os_),
+                    "train_h": round(th, 1), "wait_h": round(w)})
+    engine.section_flow.__defaults__ = (line.ALPHA,)
     return out
+
+
+def alpha_estimate(hd, H):
+    """Оценка α сверху по данным: куда едут утром, судим по тому, где входят вечером (обратная поездка).
+    Поездка из станции сектора не пересекает критический перегон, если её цель — другая станция того же сектора.
+    Доля таких целей = вечерние входы этих станций / вечерние входы всего метро. Метро целиком = линия 1 × (699 млн /
+    годовые входы линии 1). Без поправки на то, что к близким станциям ездят чаще, поэтому это оценка сверху."""
+    wd = np.array([d.weekday() < 5 and d.strftime("%Y-%m-%d") not in line.HOLIDAYS for d in hd])
+    annual = H.sum() / len(hd) * 365
+    R = 699e6 / annual
+    eve = H[wd][:, 16:20, :].sum(1).mean(0)
+    mor = H[wd][:, 7:10, :].sum(1).mean(0)
+    W = eve.sum() * R
+    out = {"metro_to_line1": round(float(R), 2)}
+    for sec, st in (("north", line.NORTH), ("south", line.SOUTH)):
+        idx = [line.STATIONS.index(x) for x in st]
+        a = [1 - sum(eve[j] for j in idx if j != i) / W for i in idx]
+        out[sec] = round(float(np.average(a, weights=mor[idx])), 3)
+    return out
+
+
+def proposal_variants(days, X, ds, proposal):
+    """До какого времени держать утреннюю парность: варианты на будних днях сентября, при разных α."""
+    plan = engine.pairs_profile("weekday_sep")
+    sep = [i for i, d in enumerate(days) if line.schedule_for(d) == "weekday_sep" and d.month == 9 and ds[i] not in line.HOLIDAYS]
+    first_drop = next(k for k in range(32, 60) if plan[k] < plan[k - 1])
+    peak = plan[first_drop - 1]
+    rows = []
+    for end in list(range(first_drop, first_drop + 5)) + [None]:
+        if end is None:
+            need = proposal
+        else:
+            need = plan.copy()
+            need[first_drop:end] = np.maximum(plan[first_drop:end], peak)
+        row = {"until": None if end is None else int(end), "train_h_day": round(float(((engine.trains_on_line(need) - engine.trains_on_line(plan)) * 0.25).sum()), 2)}
+        for a in (0.75, 0.85, 0.89):
+            engine.section_flow.__defaults__ = (a,)
+            ev = [simulate.effect(X[i], plan, need) for i in sep]
+            row[str(a)] = {"over_plan": round(float(np.mean([e["plan"]["over_pax"] for e in ev]))),
+                           "over_new": round(float(np.mean([e["system"]["over_pax"] for e in ev])))}
+            row["wait_h_day"] = round(float(np.mean([(e["plan"]["wait_min"] - e["system"]["wait_min"]) / 60 for e in ev])), 1)
+        rows.append(row)
+    engine.section_flow.__defaults__ = (line.ALPHA,)
+    return {"from": int(first_drop), "peak": float(peak), "rows": rows}
 
 
 if __name__ == "__main__":

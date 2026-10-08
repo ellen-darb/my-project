@@ -28,7 +28,10 @@ export async function render(app, params) {
   if (params.get("d")) state.d = params.get("d");
   if (params.get("t")) state.t = +params.get("t");
   const [meta, days, fcst] = await Promise.all([load("meta.json"), load("days.json"), load("forecast.json")]);
+  let seen = false;
+  try { seen = localStorage.getItem("takt-hint") === "1"; } catch (e) { /* хранилище недоступно */ }
   app.innerHTML = `
+  ${seen ? "" : `<div class="hint" id="p-hint"><div><b>Как читать пульт.</b> Это проигрывание реального дня по турникетам: Такт видит только прошлое до момента «Сейчас». Слева — график движения, цвет нитки показывает, сколько человек в составе. Справа — что Такт советует диспетчеру и проходит ли мера ограничения линии. Нажмите «Проиграть» или выберите день внизу.</div><button class="btn" id="p-hint-x">Понятно</button></div>`}
   <div class="pult-head">
     <div class="pult-day"><p class="kicker">Пульт диспетчера · линия 1 · проигрывание реального дня</p><h1 id="p-day"></h1><div class="meta" id="p-meta"></div></div>
     <div class="clock"><small>Сейчас</small><span id="p-clock"></span></div>
@@ -105,6 +108,8 @@ export async function render(app, params) {
     }
     months.appendChild(row);
   }
+  const hx = document.getElementById("p-hint-x");
+  if (hx) hx.onclick = () => { document.getElementById("p-hint").remove(); try { localStorage.setItem("takt-hint", "1"); } catch (e) { /* без хранилища */ } };
   const pr = document.getElementById("p-presets");
   for (const p of PRESETS) {
     const b = document.createElement("button"); b.className = "btn"; b.textContent = p.label;

@@ -7,13 +7,13 @@ const CLS = { normal: "обычный", surge: "поток выше", drop: "п�
 
 export async function render(app) {
   const [e, ef] = await Promise.all([load("economics.json"), load("effect.json")]);
-  const u = e.unit, b = e.base, c = e.cons, a = e.annual, S = e.sources;
+  const u = e.unit, b = e.base, c = e.cons, a = e.annual, S = e.sources, tv = e.time_value;
   const src = k => `<a href="${S[k].u}" target="_blank" rel="noopener">${S[k].t}</a>`;
   app.innerHTML = `
   <div class="lede"><div>
     <p class="kicker">Эффект и деньги · год, линия 1</p>
-    <h1>Такт не зарабатывает метро денег. Он тратит ${mln(-b.net)} млн ₽ в год, чтобы ${fmt(Math.round(a.dover / 1000))} тыс. поездок прошли в пределах нормы.</h1>
-    <p class="sub">Выручка от того, что в вагоне свободнее, не растёт: тариф тот же, пассажиры едут всё равно. Поэтому считаем только то, что реально меняется в расходах, — поездо-часы, — и что за эти деньги получают пассажиры.</p>
+    <h1>Такт тратит ${mln(-b.net)} млн ₽ в год. ${mln(tv.base)} млн из них возвращаются временем пассажиров, остальное — цена за ${fmt(Math.round(a.dover / 1000))} тыс. поездок без давки сверх нормы.</h1>
+    <p class="sub">Выручка от того, что в вагоне свободнее, не растёт: тариф тот же, пассажиры едут всё равно. Поэтому считаем то, что реально меняется в расходах, — поездо-часы, — и что за эти деньги получают пассажиры: минуты ожидания (их можно оценить в рублях) и место в вагоне (его в рублях не оцениваем).</p>
   </div></div>
 
   <div class="section">
@@ -21,7 +21,7 @@ export async function render(app) {
       <div class="big"><div class="v">−${mln(-b.net)}<small> млн ₽</small></div><div class="k">в год, базовый сценарий</div><div class="src">консервативный: −${mln(-c.net)} млн ₽</div></div>
       <div class="big"><div class="v">${fmt(Math.round(a.dover / 1000))}<small> тыс.</small></div><div class="k">поездок в год в пределах нормы вместо «сверх»</div><div class="src">по проигрыванию 120 дней на фактическом потоке</div></div>
       <div class="big"><div class="v">${fmt(b.per_relieved_pax)}<small> ₽</small></div><div class="k">за каждую такую поездку</div><div class="src">средняя поездка стоит метро ${fmt(u.cost_per_trip)} ₽; консервативно ${fmt(c.per_relieved_pax)} ₽</div></div>
-      <div class="big"><div class="v">${dec(e.budget_share.base * 100, 3)}<small>%</small></div><div class="k">расходов метро на перевозку</div><div class="src">72,4 млрд ₽ в 2025 году</div></div>
+      <div class="big"><div class="v">+${mln(tv.base)}<small> млн ₽</small></div><div class="k">${fmt(tv.hours / 1000)} тыс. часов ожидания меньше</div><div class="src">${tv.vot} ₽ за час поездки (ВШЭ); консервативно +${mln(tv.cons)} млн</div></div>
     </div>
   </div>
 
@@ -48,6 +48,15 @@ export async function render(app) {
       <p>Меняем по одному допущению, остальное как в базовом сценарии (−${mln(-e.sensitivity.base_net)} млн ₽, линия на графике). Главное — какую цену поездо-часа принять: с амортизацией вагонов расход вырастает в 2,3 раза. Больше аномальных дней не дороже, а дешевле: в дни провала Такт снимает составы.</p>
     </div>
     <div class="tor" id="ef-tor"></div>
+  </div>
+
+  <div class="section">
+    <div class="sec-head">
+      <div><p class="kicker">Главное допущение</p><h2>Сколько из этого держится на доле тех, кто едет к центру</h2></div>
+      <p>Доля α не измерена. По данным она не выше 0,89 для севера (см. «Методику»); принято 0,85. Ниже — 120 проигранных дней при разных α: Такт принимает решения и мы оцениваем их при одном и том же значении. Время ожидания тоже меняется, потому что при другом α Такт принимает другие решения.</p>
+    </div>
+    <table class="t" id="ef-alpha"></table>
+    <p class="note">При α = 0,75 перегрузок почти нет, Такт в основном снимает составы и экономит. При 0,89 расход на поездо-часы почти вдвое выше базового, но и польза больше. Рубли на этой странице посчитаны при 0,85.</p>
   </div>
 
   <div class="section">
@@ -116,6 +125,7 @@ export async function render(app) {
 
   document.getElementById("ef-months").innerHTML = `<thead><tr><th>Месяц</th><th class="r">Дней</th><th class="r">Поездок сверх нормы по графику</th><th class="r">С мерами Такта</th><th class="r">Изменение</th><th class="r">Поездо-часов</th></tr></thead><tbody>${ef.months.map(m => `<tr><td>${monthName(m.m)}</td><td class="r">${m.d}</td><td class="r">${fmt(m.plan_over_pax)}</td><td class="r">${fmt(m.system_over_pax)}</td><td class="r">${pct(m.system_over_pax / m.plan_over_pax - 1)}</td><td class="r">${m.system_train_h - m.plan_train_h >= 0 ? "+" : ""}${fmt(m.system_train_h - m.plan_train_h)}</td></tr>`).join("")}</tbody>`;
   tornado(document.getElementById("ef-tor"), e.sensitivity);
+  document.getElementById("ef-alpha").innerHTML = `<thead><tr><th>Доля к центру</th><th class="r">Сверх нормы по графику, 120 дней</th><th class="r">С мерами Такта</th><th class="r">Изменение</th><th class="r">Поездо-часов</th><th class="r">Ожидания меньше, пасс.-ч</th></tr></thead><tbody>${ef.alpha.map(r => `<tr${r.alpha === 0.85 ? ' class="hl"' : ""}><td>${dec(r.alpha, 2)}${r.alpha === 0.85 ? " · принято" : r.alpha === 0.89 ? " · оценка сверху по данным" : ""}</td><td class="r">${fmt(r.over_plan)}</td><td class="r">${fmt(r.over_sys)}</td><td class="r">${pct(r.over_sys / r.over_plan - 1)}</td><td class="r">${r.train_h >= 0 ? "+" : "−"}${fmt(Math.abs(r.train_h))}</td><td class="r">${r.wait_h >= 0 ? "" : "−"}${fmt(Math.abs(r.wait_h))}</td></tr>`).join("")}</tbody>`;
   bars(document.getElementById("ef-bars"), [
     { k: "Базовый", cost: b.cost, save: b.save, net: b.net },
     { k: "Консервативный", cost: c.cost, save: c.save, net: c.net },

@@ -6,13 +6,13 @@ const SECT = [["north", "Север → центр"], ["south", "Юг → цен
 let st = { s: "weekday_sep", sec: "north" };
 
 export async function render(app) {
-  const [meta, fit] = await Promise.all([load("meta.json"), load("schedule_fit.json")]);
+  const [meta, fit, eco] = await Promise.all([load("meta.json"), load("schedule_fit.json"), load("economics.json")]);
   const pr = fit.weekday_sep.proposal;
   const f = fit.weekday_sep;
   const k9 = 36;
   app.innerHTML = `
   <div class="lede"><div>
-    <p class="kicker">График и спрос · линия 1</p>
+    <p class="kicker">График и спрос · для службы, которая составляет лист графика</p>
     <h1>Утром составов с севера не хватает каждый будний день. Так устроен сам график.</h1>
     <p class="sub">С 07:45 до 09:30 в составе к центру с севера в среднем больше 960 человек. Добавить составы в 08:00 нельзя: на линии уже 53 из 53 при интервале 1:53. Но в 09:00 график снимает 6 пар, а поток к этому времени ещё ${fmt(f.north.p50[k9])} человек на состав.</p>
   </div></div>
@@ -51,7 +51,27 @@ export async function render(app) {
       <div class="big"><div class="v">0</div><div class="k">новых составов и изменений пропускной способности</div><div class="src">только время ухода в депо</div></div>
     </div>
     <table class="t" style="margin-top:24px" id="pl-tab"></table>
+  </div>
+
+  <div class="section">
+    <div class="sec-head">
+      <div><p class="kicker">Варианты и их цена</p><h2>Чем дольше держать составы, тем меньше ждут, но давка уходит не вся</h2></div>
+      <p>Пассажиров сверх нормы считаем через долю α тех, кто едет к центру. Её не измеряли, поэтому показываем три значения: 0,75, принятое 0,85 и 0,89 — оценку сверху по данным (см. «Методику»). Время ожидания от α не зависит: оно считается по всем входам линии и интервалу, поэтому это самый надёжный эффект.</p>
+    </div>
+    <table class="t" id="pl-var"></table>
+    <div class="cols-2" style="margin-top:20px">
+      <div class="callout"><b>Время пассажиров покрывает цену, но впритык</b>Предложение стоит ${fmt(pr.extra_train_h_day * eco.unit.add_train_h.base / 1000)} тыс. ₽ в будний день по предельной цене поездо-часа. Пассажиры ждут меньше на ${fmt(pr.wait_saved_h_day)} часов, это ${fmt(pr.wait_saved_h_day * eco.time_value.vot / 1000)} тыс. ₽ по оценке часа поездки ${eco.time_value.vot} ₽ (ВШЭ, Москва) или ${fmt(pr.wait_saved_h_day * eco.time_value.vot_cons / 1000)} тыс. ₽ консервативно. Давка сверх нормы, ради которой всё затевается, в эти рубли не входит.</div>
+      <div class="callout"><b>Что проверить до внедрения</b>В данных нет смен машинистов и окон осмотра составов в депо. Удержание 4–6 пар на 30 минут значит 7–10 составов и машинистов, которые уходят с линии позже. Если смены не позволяют, вариант «до 09:15» даёт половину эффекта по ожиданию за половину цены и около двух третей эффекта по давке.</div>
+    </div>
   </div>`;
+
+  // варианты удержания
+  const V = f.variants, cost = eco.unit.add_train_h.base, vot = eco.time_value.vot;
+  const red = (o) => o.over_plan ? `−${Math.round((1 - o.over_new / o.over_plan) * 100)}%` : "—";
+  const vrow = (name, th, wh, a75, a85, a89, cls = "") => `<tr${cls}><td>${name}</td><td class="r">+${dec(th)}</td><td class="r">${fmt(th * cost / 1000)}</td><td class="r">${fmt(wh)}</td><td class="r">${fmt(wh * vot / 1000)}</td><td class="r">${a75}</td><td class="r">${a85}</td><td class="r">${a89}</td></tr>`;
+  document.getElementById("pl-var").innerHTML = `<thead><tr><th>Держать утреннюю парность ${dec(V.peak, 0)} пар/ч</th><th class="r">Поездо-часов в день</th><th class="r">Стоит, тыс. ₽</th><th class="r">Ожидания меньше, пасс.-ч</th><th class="r">Это стоит, тыс. ₽</th><th class="r">Сверх нормы при доле 0,75</th><th class="r">0,85</th><th class="r">0,89</th></tr></thead><tbody>${
+    V.rows.filter(r => r.until !== null && r.until > V.from).map(r => vrow(`до ${hhmm(r.until * 15)}`, r.train_h_day, r.wait_h_day, red(r["0.75"]), red(r["0.85"]), red(r["0.89"]))).join("")
+  }${(r => vrow("<b>Предложение Такта</b>: по потоку, до 09:30", r.train_h_day, r.wait_h_day, red(r["0.75"]), red(r["0.85"]), red(r["0.89"]), ' class="hl"'))(V.rows.find(r => r.until === null))}</tbody>`;
 
   // таблица изменений
   const changes = d3.range(96).filter(k => f.need[k] !== f.pairs[k]);

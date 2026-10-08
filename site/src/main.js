@@ -20,6 +20,8 @@ async function route() {
   current = tab;
   if (cleanup) { cleanup(); cleanup = null; }
   document.querySelectorAll("#tabs a").forEach(a => a.classList.toggle("on", a.getAttribute("href") === `#${tab}`));
+  const on = document.querySelector("#tabs a.on");
+  if (on) on.scrollIntoView({ inline: "center", block: "nearest" });
   app.innerHTML = `<div class="loading">Загрузка…</div>`;
   try {
     const mod = await TABS[tab]();

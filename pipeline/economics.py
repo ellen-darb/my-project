@@ -30,6 +30,10 @@ SOURCES = {
                 "u": "https://www.dp.ru/a/2023/03/15/kazhdij_novij_vagon_met"},
     "msk_traction": {"t": "Мосгорсправка/АГН Москва, 2014: 75% энергии метро уходит на тягу",
                      "u": "https://www.mskagency.ru/materials/1884514"},
+    "hse_vot": {"t": "Сергиенко М., «Городские исследования и практики», 2022, т. 7, № 4: час сэкономленного времени поездки в Москве — 495 ₽",
+                "u": "https://usp.hse.ru/article/view/16946"},
+    "dp_wage": {"t": "Деловой Петербург, 13.02.2026: средняя зарплата в Петербурге за 2025 год — 117,2 тыс. ₽ (Петростат)",
+                "u": "https://www.dp.ru/a/2026/02/13/srednemesjachnaja-zarplata-v"},
     "dp_it": {"t": "Деловой Петербург, 30.04.2026: зарплаты ИТ-специалистов в Петербурге (hh.ru, I кв. 2026)",
               "u": "https://www.dp.ru/a/2026/04/30/it-specialisti-v-peterburge"},
 }
@@ -44,6 +48,8 @@ PAX = 699e6               # пассажиров в 2025 (dp_pax)
 TRACTION_SHARE = (0.70, 0.75)   # доля тяги в энергии (msk_traction, московский ориентир)
 DRIVER_MONTH = 155_000    # ₽ до вычета, после допуска к самостоятельной работе (hh_driver)
 INSURANCE = 1 + 7.2 / 23.4      # взносы к ФОТ по калькуляции 2025: 7,2 / 23,4 (fontanka_2025)
+VOT = 495                 # ₽ за час времени поездки, Москва, метод заявленных предпочтений (hse_vot)
+VOT_CONS = 495 / 2        # консервативно: секунды ожидания на платформе ценятся ниже часа поездки; Петербург беднее Москвы
 HOURS_MONTH = 165         # норма часов при 40-часовой неделе (ТК РФ)
 CARS = line.CARS
 SPEED = 2 * line.LINE_KM * 60 / line.TURNOVER_MIN   # км/ч состава в обороте: 59,2 км за 99 мин
@@ -211,6 +217,9 @@ def run(effect_days, calendar):
         "by_type": rows, "annual": annual, "cons_annual": cons_annual,
         "base": money("base"), "cons": cons,
         "pilot": {"team": team, "months": pilot_months, "rub": pilot, "support_year": support},
+        "time_value": {"hours": annual["dwait_h"], "base": annual["dwait_h"] * VOT, "cons": annual["dwait_h"] * VOT_CONS,
+                       "vot": VOT, "vot_cons": VOT_CONS,
+                       "net_base": money("base")["net"] + annual["dwait_h"] * VOT, "net_cons": cons["net"] + annual["dwait_h"] * VOT_CONS},
         "budget_share": {"base": money("base")["cost"] / COST_FACT, "cons": cons["cost"] / COST_FACT},
     }
 
