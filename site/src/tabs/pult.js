@@ -33,7 +33,7 @@ export async function render(app, params) {
   app.innerHTML = `
   ${seen ? "" : `<div class="hint" id="p-hint"><div><b>Как читать пульт.</b> Это проигрывание реального дня по турникетам: Такт видит только прошлое до момента «Сейчас». На графике движения цвет нитки показывает, сколько человек в составе. Рядом — что Такт советует диспетчеру и проходит ли мера ограничения линии. Нажмите «Проиграть» или выберите день внизу страницы.</div><button class="btn" id="p-hint-x">Понятно</button></div>`}
   <div class="pult-head">
-    <div class="pult-day"><p class="kicker">Пульт диспетчера · линия 1 · проигрывание реального дня</p><h1 id="p-day"></h1><div class="meta" id="p-meta"></div></div>
+    <div class="pult-day"><p class="kicker">Пульт диспетчера · линия 1 · проигрывание реального дня</p><h1 id="p-day"></h1><div class="meta" id="p-meta"></div><button class="btn" id="p-csv" hidden style="margin-top:10px">Скачать рекомендации дня, CSV</button></div>
     <div class="clock"><small>Сейчас</small><span id="p-clock"></span></div>
     <div class="transport">
       <div class="tbtns"><button class="btn solid" id="p-play" aria-label="Проиграть">▶ Проиграть</button>
@@ -74,7 +74,7 @@ export async function render(app, params) {
     <div><div class="chart-title"><h3>Парность: лист графика и с мерами Такта</h3><span class="legend"><span><i style="background:var(--ink)"></i>лист графика</span><span><i class="dash" style="color:var(--blue)"></i>с мерами, заливка — добавлено</span></span></div><div id="p-pairs"></div></div>
   </div>
   <div class="daystrip">
-    <div class="chart-title"><h3>Выберите день: 120 дней с поминутными турникетами</h3>
+    <div class="chart-title"><h3>Выберите день: 120 дней с турникетами по 15 минут</h3>
       <span class="legend"><span>цвет — пассажиры сверх нормы за день по графику</span><span class="scale" id="p-dscale"></span></span></div>
     <div class="months" id="p-months"></div>
     <div class="presets" id="p-presets"></div>
@@ -110,6 +110,24 @@ export async function render(app, params) {
   }
   const hx = document.getElementById("p-hint-x");
   if (hx) hx.onclick = () => { document.getElementById("p-hint").remove(); try { localStorage.setItem("takt-hint", "1"); } catch (e) { /* без хранилища */ } };
+  // выгрузка рекомендаций дня: только там, где страница может предложить файл
+  const csvBtn = document.getElementById("p-csv");
+  if (window.claude?.use) window.claude.use("downloads").then(dl => {
+    if (!dl || !document.body.contains(csvBtn)) return;
+    csvBtn.hidden = false;
+    csvBtn.onclick = async () => {
+      const q = v => `"${String(v).replace(/"/g, '""')}"`;
+      const rows = [["Время", "Состояние", "Поток за час к обычному", "Мера", "Почему"]];
+      for (const e of day.dec) {
+        const st = STATUS[e.s]?.label || e.s, lr = sgnPct(e.lr - 1);
+        if (!e.m.length) rows.push([slotStr(e.t), st, lr, "по графику", ""]);
+        for (const m of e.m) rows.push([slotStr(e.t), st, lr, m.text, m.why]);
+      }
+      const csv = "\ufeff" + rows.map(r => r.map(q).join(";")).join("\r\n");
+      try { await dl.save({ filename: `takt-${state.d}.csv`, data: csv }); }
+      catch (err) { if (["unavailable", "not_granted", "capability_disabled", "capability_removed"].includes(err?.code)) csvBtn.hidden = true; }
+    };
+  });
   const pr = document.getElementById("p-presets");
   for (const p of PRESETS) {
     const b = document.createElement("button"); b.className = "btn"; b.textContent = p.label;
@@ -207,7 +225,7 @@ function renderDecision(node, dc, day, meta, t) {
   }
   const ms = dc.m.length ? dc.m.map(m => `
     <li class="measure"><div class="ic" style="${m.type === "add" ? "background:var(--ink);color:var(--paper)" : ""}">${ICON[m.type]}</div>
-    <div><b>${m.text}</b><span>${m.why}</span></div></li>`).join("")
+    <div><b>${m.text}</b><span>${m.why}</span>${m.type === "hold" && (m.to ?? 0) >= 35 && (m.to ?? 0) < 40 && day.sched === "weekday_sep" ? `<span class="mnote">Это расчёт по прогнозу этого дня. Предложение к листу графика держит составы до 09:30: оно подобрано по медиане сезона, а не по одному дню.</span>` : ""}</div></li>`).join("")
     : `<li class="measure"><div class="ic">✓</div><div><b>Действовать по графику</b><span>меры не нужны</span></div></li>`;
   const checks = dc.ck ? `<ul class="checks">${dc.ck.map(c => `<li><span class="${c.ok ? "y" : "n"}">${c.ok ? "✓" : "✕"}</span><span>${c.rule}</span><em>${c.note}</em></li>`).join("")}</ul>` : "";
   const P = day.sys[t + 1], trains = Math.round(P * meta.c.turnover / 60);

@@ -298,3 +298,4 @@ details.more[open] > summary::before { content: "−"; }
 .statline b { color: var(--ink); font-weight: 800; }
 @media (max-width: 640px) { .statline { font-size: 18px; } }
 .sw { display: inline-block; width: 12px; height: 12px; border-radius: 2px; vertical-align: -1px; margin: 0 2px; }
+.measure .mnote { display: block; margin-top: 6px; font-size: 13px; color: var(--ink-2); border-left: 2px solid var(--rule); padding-left: 8px; }
