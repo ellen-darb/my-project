@@ -1,12 +1,12 @@
 import * as d3 from "d3";
-import { load, fmt, pct, sgnPct, dayLong, weekdayS, parseDay, monthName, tipShow, tipHide, width, css } from "../lib/util.js";
+import { load, fmt, pct, sgnPct, dayLong, weekdayS, parseDay, monthName, tipShow, tipHide, width, css, slotStr } from "../lib/util.js";
 
 const KIND = { surge: "поток выше обычного", drop: "поток ниже обычного", incident: "станция потеряла вход" };
 let sel = "2026-08-31";
 
 export async function render(app, params) {
   if (params.get("d")) sel = params.get("d");
-  const [meta, cal, eco, hourly] = await Promise.all([load("meta.json"), load("calendar.json"), load("economics.json"), load("hourly.json")]);
+  const [meta, cal, eco, hourly, days] = await Promise.all([load("meta.json"), load("calendar.json"), load("economics.json"), load("hourly.json"), load("days.json")]);
   const A = eco.anomaly, S = eco.anomaly_sens;
   const lbl = A.rate;
   app.innerHTML = `
@@ -64,6 +64,7 @@ export async function render(app, params) {
     node.innerHTML = `
       <div class="sec-head"><div><p class="kicker">${weekdayS(sel)} · ${c.planned ? "плановый день" : c.kinds.length ? "аномалия" : "обычный день"}</p><h2>${dayLong(sel)}: ${sgnPct(c.dev)} к обычному</h2></div>
       <p>${describe(c)}</p></div>
+      ${taktBox(days.find(x => x.d === sel))}
       <div class="chart-title"><h3>Вход по станциям и часам к обычному дню</h3><span class="note">станции с юга (внизу) на север (вверху), как на схеме</span></div>
       <div id="an-heat"></div>`;
     heat(document.getElementById("an-heat"), X, B, meta.stations);
@@ -71,11 +72,23 @@ export async function render(app, params) {
   drawDay();
 }
 
+const MEAS = { hold: "удержать", add: "добавить", cut: "снять", limit: "предупредить станции" };
+function taktBox(d) {
+  if (!d) return `<div class="an-takt muted">Для этого дня есть только почасовые данные. Проиграть его на пульте можно для февраля, мая, июля и сентября — там турникеты по 15 минут.</div>`;
+  const kinds = Object.entries(d.n).filter(([, v]) => v > 0).sort((a, b) => d.first[a[0]] - d.first[b[0]]);
+  const t0 = Object.values(d.first).length ? Math.min(...Object.values(d.first)) : 32;
+  const what = kinds.length
+    ? kinds.map(([k, v]) => `«${MEAS[k]}» с ${slotStr(d.first[k])}, рекомендаций: ${v}`).join("; ")
+    : "";
+  const over = d.over ? `Пассажиров сверх нормы по графику ${fmt(d.over)}, с мерами Такта ${fmt(d.over_sys)}.` : "Сверх нормы пассажиров не было.";
+  return `<div class="an-takt"><div><b>Что предложил Такт</b><p>${kinds.length ? what : "Мер не было"}. ${over}</p></div><a class="btn" href="#pult?d=${d.d}&t=${t0}">Открыть на пульте</a></div>`;
+}
+
 function describe(c) {
   const parts = [];
   if (c.incident?.length) parts.push(`${c.incident[0][0]} в ${c.incident[0][1]}:00 приняла ${pct(c.incident[0][2])} обычного потока — похоже на закрытие входа или сбой. Люди ушли на соседние станции и в другие часы.`);
   if (c.kinds.includes("surge")) parts.push(`Поток выше обычного на 12%+ два часа подряд: ${c.surge.map(s => ({ line: "линия", north: "север", south: "юг" })[s]).join(", ")}.`);
-  if (c.kinds.includes("drop")) parts.push(`Поток ниже обычного на 12%+ два часа подряд: ${c.drop.map(s => ({ line: "линия", north: "север", south: "юг" })[s]).join(", ")}. В такие часы Такт предлагает снять составы, если загрузка ниже 70% нормы.`);
+  if (c.kinds.includes("drop")) parts.push(`Поток ниже обычного на 12%+ два часа подряд: ${c.drop.map(s => ({ line: "линия", north: "север", south: "юг" })[s]).join(", ")}. Снять составы Такт предлагает, только если поток ниже обычного на 15%+ и загрузка ниже 70% нормы.`);
   if (c.season) parts.push("Рост перед 1 сентября: возвращение к учебному ритму, плановое.");
   if (c.note) parts.push("Повтор закрытия на той же станции в те же часы несколько дней подряд — плановые работы, не аномалия.");
   if (!parts.length && c.local?.length) parts.push(`Всплеск у станции ${c.local[0][0]} около ${c.local[0][1]}:00 при обычной линии — так выглядит мероприятие. Это плановое событие.`);

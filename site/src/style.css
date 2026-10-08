@@ -272,3 +272,7 @@ summary { cursor: pointer; font-weight: 600; }
 }
 .cell .mk { color: #141413; }
 .cell.dark .mk { color: #fff; }
+
+.an-takt { display: flex; gap: 16px 24px; align-items: center; justify-content: space-between; flex-wrap: wrap; margin: 16px 0 24px; padding: 14px 16px; background: var(--sheet); border: 1px solid var(--rule-2); border-radius: 10px; }
+.an-takt p { margin: 4px 0 0; color: var(--ink-2); font-size: 15px; }
+.an-takt.muted { color: var(--ink-3); font-size: 14px; display: block; }
