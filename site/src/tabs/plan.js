@@ -28,11 +28,12 @@ export async function render(app) {
     <div class="legend" style="margin-bottom:8px">
       <span><i style="background:var(--ink)"></i>медиана дней</span>
       <span><i style="background:var(--band);height:10px"></i>8 из 10 дней</span>
-      <span><i style="background:var(--red);height:2px"></i>самый тяжёлый день</span>
+      <span><i style="background:var(--red);height:2px"></i>максимум за все дни</span>
       <span><i class="dash" style="color:var(--red)"></i>норма 960</span>
       <span id="pl-n" class="note"></span>
     </div>
     <div id="pl-load"></div>
+    <p class="note">Это направление к центру. Вечером тяжёлое направление обратное, из центра, и по входам на турникетах его не оценить: выходов по станциям в данных нет.</p>
     <div class="chart-title" style="margin-top:14px"><h3>Парность по листу графика</h3>
       <span class="legend"><span><i style="background:var(--ink)"></i>лист графика</span><span id="pl-need-l"><i style="background:var(--blue)"></i>предложение Такта</span></span></div>
     <div id="pl-pairs"></div>

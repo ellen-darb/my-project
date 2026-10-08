@@ -1,4 +1,5 @@
 import "./style.css";
+import { resetPalette } from "./lib/util.js";
 
 const TABS = {
   pult: () => import("./tabs/pult.js"),
@@ -30,6 +31,7 @@ async function route() {
   window.scrollTo(0, 0);
 }
 addEventListener("hashchange", route);
+matchMedia("(prefers-color-scheme: dark)").addEventListener("change", () => { resetPalette(); current = null; route(); });
 
 let resizeT;
 addEventListener("resize", () => {
@@ -44,7 +46,7 @@ document.getElementById("theme").onclick = () => {
   const dark = root.dataset.theme ? root.dataset.theme === "dark" : matchMedia("(prefers-color-scheme: dark)").matches;
   root.dataset.theme = dark ? "light" : "dark";
   try { localStorage.setItem("takt-theme", root.dataset.theme); } catch (e) {}
-  current = null; route();
+  resetPalette(); current = null; route();
 };
 
 route();

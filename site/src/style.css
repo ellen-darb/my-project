@@ -146,6 +146,7 @@ p { max-width: 72ch; }
 .cell.we { outline: 1px dashed var(--rule); outline-offset: -1px; }
 .cell.sel { box-shadow: 0 0 0 2px var(--paper), 0 0 0 4px var(--ink); }
 .cell.dark { color: #fff; }
+.cell.loc { text-decoration: underline dotted; text-underline-offset: 3px; }
 .presets { display: flex; flex-wrap: wrap; gap: 8px; margin: 14px 0 0; }
 
 /* ---------- общие графики ---------- */
@@ -205,5 +206,8 @@ summary { cursor: pointer; font-weight: 600; }
   .lede { grid-template-columns: 1fr; }
   .cells { gap: 2px; }
   .cell { height: 24px; font-size: 0; }
+  .transport { flex-wrap: wrap; min-width: 0; width: 100%; }
+  .transport input[type=range] { order: 5; flex-basis: 100%; }
+  .pult-head { gap: 12px 24px; }
   .month { grid-template-columns: 44px 1fr; }
 }

@@ -52,7 +52,8 @@ export function segLoads(tr, entries, pairs, meta) {
 export function drawMarey(node, { day, meta, nowMin, pairs, entriesAt, span = [-60, 120], height = 540 }) {
   const W = width(node, 320);
   const narrow = W < 640;
-  const M = { t: 26, r: narrow ? 8 : 132, b: 30, l: narrow ? 92 : 150 };
+  const M = { t: 26, r: narrow ? 8 : 132, b: 30, l: narrow ? 84 : 150 };
+  const SHORT = { "Технологический ин-т": "Технол. ин-т", "Гражданский пр.": "Гражданский", "Политехническая": "Политехнич.", "Кировский завод": "Кировский з-д", "Академическая": "Академич.", "Пл. Восстания": "Пл. Восст.", "Пр. Ветеранов": "Пр. Ветеранов", "Чернышевская": "Чернышевск.", "Владимирская": "Владимирск." };
   const H = height;
   const x = d3.scaleLinear().domain([nowMin + span[0], nowMin + span[1]]).range([M.l, W - M.r]);
   const st = meta.stations;
@@ -100,7 +101,7 @@ export function drawMarey(node, { day, meta, nowMin, pairs, entriesAt, span = [-
     .style("font-size", narrow ? "10.5px" : "12px")
     .style("font-weight", (d, i) => (i === 11 || i === 4) ? 700 : 400)
     .style("fill", (d, i) => (i >= 5 && i <= 10) ? "var(--ink-3)" : "var(--ink-2)")
-    .text(d => d);
+    .text(d => narrow ? (SHORT[d] || d) : d);
 
   // критические перегоны
   for (const [a, b, label] of [[10, 11, "Пл. Ленина → Чернышевская"], [4, 5, "Нарвская → Балтийская"]]) {

@@ -34,9 +34,12 @@ export const SCHED_TITLE = { weekday_sep: "рабочий день, график
 export function css(name) { return getComputedStyle(document.documentElement).getPropertyValue(name).trim(); }
 
 /* Загрузка состава: ниже нормы — серая шкала, выше — красная. Середина — норма 960. */
+let pal = null;
+export function resetPalette() { pal = null; }
 export function loadColor(L, norm = 960) {
-  if (L == null || !isFinite(L)) return css("--unknown");
-  if (L <= norm) return d3.interpolateRgb("#D3CFC6", "#77736A")(Math.max(0, L) / norm);
+  if (!pal) pal = { lo: d3.interpolateRgb(css("--rule"), css("--ink-3")), unk: css("--unknown") };
+  if (L == null || !isFinite(L)) return pal.unk;
+  if (L <= norm) return pal.lo(Math.max(0, L) / norm);
   const k = Math.min(1, (L - norm) / (1458 - norm));
   return k < 0.5 ? d3.interpolateRgb("#F2908A", "#D6083B")(k / 0.5) : d3.interpolateRgb("#D6083B", "#6A0020")((k - 0.5) / 0.5);
 }

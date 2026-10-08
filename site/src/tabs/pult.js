@@ -18,7 +18,7 @@ const STATUS = {
   anomaly: { c: "var(--red)", label: "Нештатный поток" },
   low: { c: "var(--blue)", label: "Поток ниже обычного" },
 };
-const ICON = { hold: "=", add: "+", cut: "−", limit: "!" };
+const ICON = { hold: "=", add: "+", cut: "−", limit: "!", watch: "i" };
 const SECT = { north: "Север → центр", south: "Юг → центр", line: "Вся линия" };
 const GROUP = { "mon-thu": "будний день", fri: "пятница", sat: "суббота", sun: "воскресенье или праздник" };
 
