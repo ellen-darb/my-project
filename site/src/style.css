@@ -44,7 +44,7 @@ button { font: inherit; color: inherit; }
 
 /* ---------- шапка ---------- */
 .top {
-  position: sticky; top: 0; z-index: 20; display: flex; align-items: center; gap: 32px;
+  position: sticky; top: env(safe-area-inset-top, 0px); z-index: 20; display: flex; align-items: center; gap: 32px;
   padding: 0 32px; height: 60px; background: var(--paper); border-bottom: 2px solid var(--ink);
 }
 .brand { display: flex; align-items: center; gap: 10px; text-decoration: none; }
