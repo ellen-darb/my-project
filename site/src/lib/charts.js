@@ -6,7 +6,7 @@ const X0 = 22, X1 = 96;   // 05:30 — 24:00
 /* Загрузка состава на критическом перегоне за день: обычный день, факт, прогноз с интервалом, норма. */
 export function sectorChart(node, { title, typ, fact, sys, fc, band, t, norm, maxTrain, height = 230, compact = false }) {
   const W = width(node, 280), H = height;
-  const M = { t: 12, r: 12, b: 26, l: 44 };
+  const M = { t: 12, r: 22, b: 26, l: 44 };
   const x = d3.scaleLinear().domain([X0 * 15, X1 * 15]).range([M.l, W - M.r]);
   const ymax = Math.max(1500, d3.max(fact) || 0, d3.max(fc || [0]) || 0);
   const y = d3.scaleLinear().domain([0, ymax]).range([H - M.b, M.t]).nice();
@@ -75,7 +75,7 @@ export function sectorChart(node, { title, typ, fact, sys, fc, band, t, norm, ma
 /* Парность: лист графика и с мерами системы. Предел 31,9 пары/ч (интервал 1:53). */
 export function pairsChart(node, { plan, sys, t, maxPairs, height = 230, compact = false }) {
   const W = width(node, 280), H = height;
-  const M = { t: 12, r: 12, b: 26, l: 36 };
+  const M = { t: 12, r: 22, b: 26, l: 36 };
   const x = d3.scaleLinear().domain([X0 * 15, X1 * 15]).range([M.l, W - M.r]);
   const y = d3.scaleLinear().domain([0, 34]).range([H - M.b, M.t]);
   const svg = d3.select(node).html("").append("svg").attr("width", W).attr("height", H)

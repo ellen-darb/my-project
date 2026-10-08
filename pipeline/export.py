@@ -170,7 +170,7 @@ def main():
                                 "d": "count"}).reset_index()
     dump("effect.json", {"months": by_m.round(1).to_dict("records"),
                          "days": ef[["d", "sched", "plan_over_pax", "system_over_pax", "plan_train_h",
-                                     "system_train_h"]].round(1).to_dict("records"),
+                                     "system_train_h", "plan_wait_min", "system_wait_min"]].round(1).to_dict("records"),
                          "alpha": alpha_sensitivity(days, X, B)})
 
     # ---------- аномалии: часовой файл январь–сентябрь ----------
@@ -198,6 +198,12 @@ def main():
                             "x": int(f[m][k]), "b": int(b[m][k])}})
     dump("calendar.json", cal)
     dump("hourly.json", {"days": [d.strftime("%Y-%m-%d") for d in hdays], "x": r(H), "b": r(hb_all)})
+    import anomalies
+    an = anomalies.classify()
+    for c, a in zip(cal, an):
+        c.update({k: a[k] for k in ("planned", "kinds", "incident", "surge", "drop", "local")})
+        c["season"] = a.get("season", False); c["note"] = a.get("note", "")
+    dump("calendar.json", cal)
 
     # ---------- график против спроса: типичная загрузка состава по часам ----------
     fit = {}
@@ -210,7 +216,30 @@ def main():
         fit[sched] = {"n": len(idx), "pairs": r(plan, 1),
                       **{s: {"p50": r(np.median(v, 0)), "p10": r(np.quantile(v, .1, 0)), "p90": r(np.quantile(v, .9, 0)),
                              "max": r(v.max(0))} for s, v in L.items()}}
+    # Предложение к листу графика «рабочий с 01.09»: парность, при которой медианный день февраля и мая
+    # держится в норме (не выше 31 пары). Проверка — на будних днях сентября, которые в подбор не входили.
+    plan = engine.pairs_profile("weekday_sep")
+    fitdays = [i for i, d in enumerate(days) if line.schedule_for(d) == "weekday_sep" and d.month in (2, 5)]
+    Lfit = {s: np.median([engine.per_train(engine.section_flow(X[i], s), plan) for i in fitdays], 0) for s in ("north", "south")}
+    need = plan.copy()
+    for k in range(96):
+        if plan[k] > 0:
+            L = max(Lfit["north"][k], Lfit["south"][k])
+            need[k] = max(plan[k], min(np.floor(line.MAX_PAIRS), np.ceil(plan[k] * L / line.NORM_TRAIN)))
+    sep = [i for i, d in enumerate(days) if line.schedule_for(d) == "weekday_sep" and d.month == 9]
+    ev = [simulate.effect(X[i], plan, need) for i in sep]
+    fit["weekday_sep"]["need"] = r(need, 1)
+    fit["weekday_sep"]["proposal"] = {
+        "fit_days": len(fitdays), "test_days": len(sep),
+        "extra_train_h_day": round(float(((engine.trains_on_line(need) - engine.trains_on_line(plan)) * 0.25).sum()), 2),
+        "over_plan_day": round(float(np.mean([e["plan"]["over_pax"] for e in ev]))),
+        "over_new_day": round(float(np.mean([e["system"]["over_pax"] for e in ev]))),
+        "wait_saved_h_day": round(float(np.mean([(e["plan"]["wait_min"] - e["system"]["wait_min"]) / 60 for e in ev])), 1)}
+    print(fit["weekday_sep"]["proposal"], [(k, plan[k], need[k]) for k in range(96) if need[k] != plan[k]])
     dump("schedule_fit.json", fit)
+    import economics
+    E = json.load(open(os.path.join(OUT, "effect.json")))
+    dump("economics.json", economics.run(E["days"], cal))
     print("готово", round(time.time() - t0, 1), "с")
 
 

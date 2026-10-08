@@ -75,6 +75,17 @@ def decide(pairs, weekend, E, Bd, t, line_ratio, plan=None):
     elif line_ratio < 0.85:
         rel = "low"
 
+    Lmax_all = max(max(v["fc"]) for v in out["sectors"].values())
+    if worst is None and rel == "high" and Lmax_all < 0.85 * NORM:
+        # поток выше обычного, но там, где загрузку можно измерить, места хватает: составы не добавляем
+        out["status"] = "anomaly"
+        out["window"] = {"sector": "line", "from": int(win[0]), "to": int(win[-1]), "lead_min": 15, "pairs": float(pairs[t + 1]),
+                         "trains": int(trains_on_line(pairs[t + 1])), "need_pairs": 0, "peak": round(Lmax_all)}
+        out["measures"].append({"type": "watch",
+                                "text": f"Составы не добавлять: к центру до {Lmax_all:.0f} чел. в составе ({Lmax_all / NORM:.0%} нормы)",
+                                "why": "поток выше обычного, но на перегонах, где загрузку можно оценить, место есть; "
+                                       "по центру — доклады дежурных станций"})
+        return out
     if worst is not None or rel == "high":
         if worst is not None:
             _, sec, over, anomal, Lf = worst
@@ -101,9 +112,9 @@ def decide(pairs, weekend, E, Bd, t, line_ratio, plan=None):
         free = int(line.MAX_TRAINS - trains_on_line(p_s0))
         add = int(min(need, max(headroom, 0), max(free, 0) * 60 / line.TURNOVER_MIN))
         out["checks"] = [
-            {"rule": "Интервал ≥ 1:53", "ok": headroom > 0, "note": f"{p_s0:.0f} пар/ч, предел 31,9"},
-            {"rule": "Составов на линии ≤ 53", "ok": free > 0, "note": f"по графику {int(trains_on_line(p_s0))}"},
-            {"rule": "Резерв успевает к началу", "ok": lead >= line.HOT_LEAD_MIN, "note": f"до перегрузки {lead} мин, выход резерва 15–20 мин"},
+            {"rule": "Запас по интервалу 1:53", "ok": headroom > 0, "note": f"{p_s0:.0f} из 31,9 пар/ч"},
+            {"rule": "Свободные составы", "ok": free > 0, "note": f"на линии {int(trains_on_line(p_s0))} из 53"},
+            {"rule": "Резерв успевает", "ok": lead >= line.HOT_LEAD_MIN, "note": f"{lead} мин до начала, выход 15–20"},
         ]
         if add > 0 and (out["status"] == "anomaly" or rel == "high" or need > 0):
             tr = math.ceil(add * line.TURNOVER_MIN / 60)

@@ -75,7 +75,7 @@ export function drawMarey(node, { day, meta, nowMin, pairs, entriesAt, span = [-
   // прогнозная зона
   const xn = x(nowMin);
   svg.append("rect").attr("x", xn).attr("y", M.t - 14).attr("width", W - M.r - xn).attr("height", H - M.b - M.t + 20)
-    .attr("fill", "url(#hatch)").attr("opacity", 0.9);
+    .attr("fill", "var(--ink)").attr("opacity", 0.035);
   const defs = svg.append("defs");
   const pat = defs.append("pattern").attr("id", "hatch").attr("width", 6).attr("height", 6)
     .attr("patternUnits", "userSpaceOnUse").attr("patternTransform", "rotate(45)");
@@ -140,9 +140,9 @@ export function drawMarey(node, { day, meta, nowMin, pairs, entriesAt, span = [-
   lines.selectAll("line").data(segs).join("line")
     .attr("x1", d => x(d.t0)).attr("x2", d => x(d.t1)).attr("y1", d => y(d.i0)).attr("y2", d => y(d.i1))
     .attr("stroke", d => d.L == null ? "var(--unknown)" : loadColor(d.L, meta.c.norm))
-    .attr("stroke-width", d => d.L == null ? 1 : (d.L > meta.c.norm ? 2.6 : 1.8))
+    .attr("stroke-width", d => d.L == null ? 0.8 : (d.L > meta.c.norm ? 2.4 : 1.2))
     .attr("stroke-linecap", "round")
-    .attr("opacity", d => d.L == null ? 0.7 : 1);
+    .attr("opacity", d => d.L == null ? 0.45 : (d.L > meta.c.norm ? 1 : 0.75));
 
   // «сейчас»
   svg.append("line").attr("x1", xn).attr("x2", xn).attr("y1", M.t - 16).attr("y2", H - M.b + 4)
