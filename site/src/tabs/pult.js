@@ -14,13 +14,13 @@ const PRESETS = [
 ];
 
 const STATUS = {
-  ok: { c: "var(--green)", label: "Составов хватает" },
-  structural: { c: "var(--amber)", label: "Перегрузка по графику" },
-  anomaly: { c: "var(--red)", label: "Нештатный поток" },
-  low: { c: "var(--blue)", label: "Поток ниже обычного" },
+  ok: { c: "var(--green)", label: "Поездов хватает" },
+  structural: { c: "var(--amber)", label: "Тесно по графику" },
+  anomaly: { c: "var(--red)", label: "Людей больше обычного" },
+  low: { c: "var(--blue)", label: "Можно убрать поезда" },
 };
 const ICON = { hold: "=", add: "+", cut: "−", limit: "!", watch: "i" };
-const SECT = { north: "Север → центр", south: "Юг → центр", line: "Вся линия" };
+const SECT = { north: "С севера в центр", south: "С юга в центр", line: "Вся линия" };
 const GROUP = { "mon-thu": "будний день", fri: "пятница", sat: "суббота", sun: "воскресенье или праздник" };
 
 let state = { d: "2026-09-15", t: 28, mode: "sys", off: 0, timer: null };
@@ -32,31 +32,31 @@ export async function render(app, params) {
   let seen = false;
   try { seen = localStorage.getItem("takt-hint") === "1"; } catch (e) { /* хранилище недоступно */ }
   app.innerHTML = `
-  ${seen ? "" : `<div class="hint" id="p-hint"><div><b>Реальный день по турникетам.</b> Слева схема линии: чем толще и краснее линия, тем теснее в составах. Справа совет диспетчеру. Нажмите «Проиграть».</div><button class="btn" id="p-hint-x">Понятно</button></div>`}
   <div class="pult-head">
-    <div class="pult-day"><p class="kicker">Пульт диспетчера · линия 1 · проигрывание реального дня</p><h1 id="p-day"></h1><div class="meta" id="p-meta"></div><button class="btn" id="p-csv" hidden style="margin-top:10px">Скачать рекомендации дня, CSV</button></div>
+    <div class="pult-day"><h1 id="p-day"></h1>
+      <div class="meta"><label class="daysel">Другой день <select id="p-date"></select></label><span id="p-meta"></span></div></div>
     <div class="clock"><small>Сейчас</small><span id="p-clock"></span></div>
-    <div class="transport">
-      <div class="tbtns"><button class="btn solid" id="p-play" aria-label="Проиграть">▶ Проиграть</button>
-      <button class="btn" id="p-back" aria-label="Назад на 15 минут">−15</button>
-      <button class="btn" id="p-fwd" aria-label="Вперёд на 15 минут">+15</button></div>
-      <input type="range" id="p-range" min="24" max="87" step="1" aria-label="Время">
-    </div>
   </div>
-  <div class="rail-wrap"><div class="rail-lbl">Решения за день</div><div class="rail" id="p-rail"></div></div>
+  <div class="transport">
+    <div class="tbtns"><button class="btn solid" id="p-play" aria-label="Проиграть">▶ Проиграть день</button>
+    <button class="btn" id="p-back" aria-label="Назад на 15 минут">−15</button>
+    <button class="btn" id="p-fwd" aria-label="Вперёд на 15 минут">+15</button></div>
+    <div><div class="rail" id="p-rail"></div>
+    <div class="rail-key"><span><i style="background:var(--green)"></i>поездов хватает</span><span><i style="background:var(--amber)"></i>тесно по графику</span><span><i style="background:var(--red)"></i>людей больше обычного</span><span><i style="background:var(--blue)"></i>можно убрать поезда</span></div></div>
+  </div>
   <div class="pult-grid">
     <div class="left">
       <div class="chart-title">
         <h3 id="p-map-t">Линия 1 сейчас</h3>
-        <div class="seg" id="p-off">${[0, 30, 60, 90, 120].map(o => `<button data-o="${o}">${o ? `+${o}<span class="u"> мин</span>` : "Сейчас"}</button>`).join("")}</div>
+        <div class="seg" id="p-mode"><button data-m="plan">Как по графику</button><button data-m="sys">Если выполнить совет</button></div>
       </div>
+      <div class="seg" id="p-off" style="margin-bottom:12px">${[0, 30, 60, 90, 120].map(o => `<button data-o="${o}">${o ? `+${o}<span class="u"> мин</span>` : "Сейчас"}</button>`).join("")}</div>
       <div class="lm-legend">
-        <span class="lm-k"><b>Линия</b> — человек в составе к центру</span>
+        <span class="lm-k"><b>Линия</b> — сколько людей в поезде, который едет в центр</span>
         <span class="lm-scale"><span>свободно</span><span class="scale" id="p-scale"></span><span>битком</span></span>
-        <span class="lm-k"><b>Полоска</b> — вошло за час, черта — сколько обычно</span>
+        <span class="lm-k"><b>Полоска</b> — сколько вошло на станции за час, черта — сколько обычно</span>
       </div>
       <div id="p-map"></div>
-      <div class="seg" id="p-mode" style="margin-top:14px"><button data-m="plan">По графику</button><button data-m="sys">С советами Такта</button></div>
     </div>
     <div class="right" id="p-dec"></div>
   </div>
@@ -79,40 +79,19 @@ export async function render(app, params) {
   </div>
   </details>
   <div class="daystrip">
-    <div class="chart-title"><h3>Выберите день: 120 дней с турникетами по 15 минут</h3>
-      <span class="legend"><span>цвет — пассажиры сверх нормы за день по графику</span><span class="scale" id="p-dscale"></span></span></div>
-    <div class="months" id="p-months"></div>
+    <h3>Примеры дней</h3>
     <div class="presets" id="p-presets"></div>
+    <button class="btn" id="p-csv" hidden style="margin-top:18px">Скачать советы за день, CSV</button>
   </div>`;
 
   // шкалы легенды
   const sc = d3.select("#p-scale");
   d3.range(0, 1459, 40).forEach(v => sc.append("span").style("flex", 1).style("background", mapColor(v)));
-  const maxOver = d3.max(days, d => d.over);
-  const dcol = v => v <= 0 ? "var(--rule-2)" : d3.interpolateRgb("#F6D3CF", "#8A0026")(Math.sqrt(v / maxOver));
-  const ds = d3.select("#p-dscale");
-  d3.range(0, 1.01, 0.05).forEach(v => ds.append("span").style("flex", 1).style("background", dcol(v * maxOver)));
-
-  // календарь дней
-  const byMonth = d3.group(days, d => parseDay(d.d).getMonth() + 1);
-  const months = document.getElementById("p-months");
-  for (const [m, list] of byMonth) {
-    const row = document.createElement("div"); row.className = "month";
-    row.innerHTML = `<div class="lbl">${monthName(m)}</div><div class="cells"></div>`;
-    const cells = row.querySelector(".cells");
-    for (const d of list) {
-      const b = document.createElement("button");
-      const dn = parseDay(d.d).getDate();
-      b.className = "cell" + (d.sched === "weekend" ? " we" : "") + (d.over > maxOver * 0.35 ? " dark" : "");
-      b.style.gridColumn = dn; b.style.background = dcol(d.over); b.textContent = dn; b.dataset.d = d.d;
-      b.setAttribute("aria-label", `${dayLong(d.d)}, сверх нормы ${fmt(d.over)} чел.`);
-      b.onmouseenter = ev => tipShow(ev, `<b>${dayLong(d.d)}, ${weekdayS(d.d)}</b><br>вошло ${fmt(d.entries)} · ${sgnPct(d.ratio - 1)} к обычному<br>пик к центру: север ${fmt(d.peak.north)}, юг ${fmt(d.peak.south)}<br>сверх нормы по графику: <b>${fmt(d.over)}</b>, с мерами ${fmt(d.over_sys)}`);
-      b.onmouseleave = tipHide;
-      b.onclick = () => { state.d = d.d; draw(true); };
-      cells.appendChild(b);
-    }
-    months.appendChild(row);
-  }
+  // выбор дня
+  const sel = document.getElementById("p-date");
+  sel.innerHTML = [...d3.group(days, d => parseDay(d.d).getMonth() + 1)].map(([m, list]) =>
+    `<optgroup label="${monthName(m)}">${list.map(d => `<option value="${d.d}">${dayLong(d.d)}, ${weekdayS(d.d)}</option>`).join("")}</optgroup>`).join("");
+  sel.onchange = () => { state.d = sel.value; draw(true); };
   const hx = document.getElementById("p-hint-x");
   if (hx) hx.onclick = () => { document.getElementById("p-hint").remove(); try { localStorage.setItem("takt-hint", "1"); } catch (e) { /* без хранилища */ } };
   // выгрузка рекомендаций дня: только там, где страница может предложить файл
@@ -122,11 +101,11 @@ export async function render(app, params) {
     csvBtn.hidden = false;
     csvBtn.onclick = async () => {
       const q = v => `"${String(v).replace(/"/g, '""')}"`;
-      const rows = [["Время", "Состояние", "Поток за час к обычному", "Мера", "Почему"]];
+      const rows = [["Время", "Состояние", "Людей к обычному", "Совет", "Почему"]];
       for (const e of day.dec) {
         const st = STATUS[e.s]?.label || e.s, lr = sgnPct(e.lr - 1);
         if (!e.m.length) rows.push([slotStr(e.t), st, lr, "по графику", ""]);
-        for (const m of e.m) rows.push([slotStr(e.t), st, lr, m.text, m.why]);
+        for (const m of e.m) rows.push([slotStr(e.t), st, lr, plain(m.text), plain(m.why)]);
       }
       const csv = "\ufeff" + rows.map(r => r.map(q).join(";")).join("\r\n");
       try { await dl.save({ filename: `takt-${state.d}.csv`, data: csv }); }
@@ -140,8 +119,6 @@ export async function render(app, params) {
     pr.appendChild(b);
   }
 
-  const range = document.getElementById("p-range");
-  range.oninput = () => { state.t = +range.value; draw(false); };
   document.getElementById("p-back").onclick = () => { state.t = Math.max(24, state.t - 1); draw(false); };
   document.getElementById("p-fwd").onclick = () => { state.t = Math.min(87, state.t + 1); draw(false); };
   const play = document.getElementById("p-play");
@@ -153,7 +130,7 @@ export async function render(app, params) {
       state.t++; draw(false);
     }, 900);
   };
-  function stop() { clearInterval(state.timer); state.timer = null; play.textContent = "▶ Проиграть"; }
+  function stop() { clearInterval(state.timer); state.timer = null; play.textContent = "▶ Проиграть день"; }
   document.querySelectorAll("#p-off button").forEach(b => b.onclick = () => { state.off = +b.dataset.o; draw(false); });
   document.querySelectorAll("#p-mode button").forEach(b => b.onclick = () => { state.mode = b.dataset.m; draw(false); });
 
@@ -163,11 +140,10 @@ export async function render(app, params) {
       day = await load(`day/${state.d}.json`);
       const info = days.find(x => x.d === state.d);
       document.getElementById("p-day").textContent = `${cap(weekday(state.d))}, ${dayLong(state.d)} 2026`;
-      document.getElementById("p-meta").innerHTML = `${SCHED_TITLE[day.sched]} · за день вошло ${fmt(info.entries)}, ${sgnPct(info.ratio - 1)} к обычному дню (${GROUP[day.group]})`;
-      document.querySelectorAll(".cell").forEach(c => c.classList.toggle("sel", c.dataset.d === state.d));
+      document.getElementById("p-meta").innerHTML = `за день вошло ${fmt(Math.round(info.entries / 1000))} тыс. человек, ${more(info.ratio - 1)}`;
     }
     const t = state.t;
-    range.value = t;
+    sel.value = state.d;
     drawRail(document.getElementById("p-rail"), day, t, tt => { state.t = tt; draw(false); });
     history.replaceState(null, "", `#pult?d=${state.d}&t=${t}`);
     document.getElementById("p-clock").textContent = slotStr(t + 1);
@@ -205,12 +181,12 @@ function drawRail(node, day, t, go) {
     node.dataset.d = day.date;
     node.innerHTML = day.dec.map(dc => {
       const m = dc.m.map(x => ICON[x.type]).join("");
-      return `<button class="rail-c" data-t="${dc.t}" style="--c:${STATUS[dc.s].c}" aria-label="${slotStr(dc.t + 1)}: ${STATUS[dc.s].label}">${m ? `<b>${m[0]}</b>` : ""}</button>`;
+      return `<button class="rail-c" data-t="${dc.t}" style="--c:${STATUS[dc.s].c}" aria-label="${slotStr(dc.t + 1)}: ${STATUS[dc.s].label}"></button>`;
     }).join("") + `<div class="rail-ax">${[7, 9, 12, 15, 18, 21].map(h => `<span style="left:${(h * 4 - 25 + 0.5) / 64 * 100}%">${String(h).padStart(2, "0")}:00</span>`).join("")}</div>`;
     node.querySelectorAll(".rail-c").forEach(b => {
       const dc = day.dec[+b.dataset.t - 24];
       b.onclick = () => go(+b.dataset.t);
-      b.onmouseenter = ev => tipShow(ev, `<b>${slotStr(dc.t + 1)}</b> · ${STATUS[dc.s].label}${dc.m.map(x => `<br>${x.text}`).join("")}`);
+      b.onmouseenter = ev => tipShow(ev, `<b>${slotStr(dc.t + 1)}</b> · ${STATUS[dc.s].label}${dc.m.map(x => `<br>${plain(x.text)}`).join("")}`);
       b.onmouseleave = tipHide;
     });
   }
@@ -222,24 +198,23 @@ function renderDecision(node, dc, day, meta, t) {
   const w = dc.w;
   let head, why;
   if (dc.s === "ok") {
-    head = "В ближайшие 2 часа загрузка ниже нормы";
-    why = `Поток на линии за последний час ${sgnPct(dc.lr - 1)} к обычному дню. Корректировка не нужна.`;
+    head = "Следующие 2 часа в поездах свободно";
+    why = `Людей ${more(dc.lr - 1)}. Ничего менять не нужно.`;
   } else if (dc.s === "low") {
-    head = `Поток ${sgnPct(dc.lr - 1)} к обычному дню`;
-    why = "Загрузка остаётся ниже 70% нормы, можно снять составы без выхода за максимальный интервал графика.";
+    head = `Людей ${more(dc.lr - 1)}`;
+    why = "В поездах будет заполнено меньше 70% мест, часть поездов можно отправить в депо.";
   } else {
-    const sec = SECT[w.sector];
-    head = w.sector === "line" ? `Поток на линии ${sgnPct(dc.lr - 1)} к обычному дню`
-      : `${sec}: до ${fmt(w.peak)} чел. в составе ${slotStr(w.from)}–${slotStr(w.to + 1)}`;
+    head = w.sector === "line" ? `Людей ${more(dc.lr - 1)}`
+      : `${SECT[w.sector]}: до ${fmt(w.peak)} человек в поезде с ${slotStr(w.from)} до ${slotStr(w.to + 1)}`;
     why = dc.s === "structural"
-      ? `Поток обычный (${sgnPct(dc.lr - 1)}), но парности графика не хватает: норма ${fmt(meta.c.norm)}. Начало через ${w.lead_min} мин.`
-      : `Поток выше обычного, перегрузка через ${w.lead_min} мин.`;
+      ? `Людей как обычно, но поездов по графику мало: норма ${fmt(meta.c.norm)} человек в поезде. ${w.lead_min ? `Начнётся через ${w.lead_min} мин.` : "Уже сейчас."}`
+      : `Людей больше обычного, станет тесно ${w.lead_min ? `через ${w.lead_min} мин` : "уже сейчас"}.`;
   }
   const ms = dc.m.length ? dc.m.map(m => `
     <li class="measure"><div class="ic" style="${m.type === "add" ? "background:var(--ink);color:var(--paper)" : ""}">${ICON[m.type]}</div>
-    <div><b>${m.text}</b><span>${m.why}</span></div></li>`).join("")
-    : `<li class="measure"><div class="ic">✓</div><div><b>Действовать по графику</b><span>меры не нужны</span></div></li>`;
-  const checks = dc.ck ? `<ul class="checks">${dc.ck.map(c => `<li><span class="${c.ok ? "y" : "n"}">${c.ok ? "✓" : "✕"}</span><span>${c.rule}</span><em>${c.note}</em></li>`).join("")}</ul>` : "";
+    <div><b>${plain(m.text)}</b><span>${plain(m.why)}</span></div></li>`).join("")
+    : `<li class="measure"><div class="ic">✓</div><div><b>Работать по графику</b><span>менять ничего не нужно</span></div></li>`;
+  const checks = dc.ck ? `<ul class="checks">${dc.ck.map(c => { const [r, n] = checkText(c); return `<li><span class="${c.ok ? "y" : "n"}">${c.ok ? "✓" : "✕"}</span><span>${r}</span><em>${n}</em></li>`; }).join("")}</ul>` : "";
   const P = day.sys[t + 1], trains = Math.round(P * meta.c.turnover / 60);
   let gain = "";
   if (w && (w.sector === "north" || w.sector === "south") && dc.m.some(m => m.type === "hold" || m.type === "add")) {
@@ -247,10 +222,10 @@ function renderDecision(node, dc, day, meta, t) {
     const over = (L, pp) => d3.sum(ks, k => Math.max(L[k] - meta.c.norm, 0) * pp[k] / 4);
     const a = day.load_plan[w.sector], b = day.load_sys[w.sector];
     const oa = over(a, day.plan), ob = over(b, day.sys);
-    gain = `<div class="gain"><p class="kicker" style="margin:0 0 6px">Что дали меры в этот день</p>
-      <div class="gain-row"><div><span class="num">${fmt(d3.max(ks, k => a[k]))}</span> → <b class="num">${fmt(d3.max(ks, k => b[k]))}</b><small>пик, чел. в составе</small></div>
-      <div><span class="num">${fmt(oa)}</span> → <b class="num">${fmt(ob)}</b><small>пассажиров сверх нормы за окно</small></div></div>
-      <p class="note" style="margin:6px 0 0">По фактическому потоку этого дня, ${slotStr(w.from)}–${slotStr(w.to + 1)}.</p></div>`;
+    const pa = d3.max(ks, k => a[k]), pb = d3.max(ks, k => b[k]);
+    if (oa > 0 && ob < oa * 0.97) gain = `<div class="gain"><p class="kicker" style="margin:0 0 6px">Если выполнить совет</p>
+      <div class="gain-row"><div><span class="num">${fmt(oa)}</span> → <b class="num">${fmt(ob)}</b><small>людей едут в тесноте сверх нормы</small></div>
+      ${pb < pa - 10 ? `<div><span class="num">${fmt(pa)}</span> → <b class="num">${fmt(pb)}</b><small>человек в самом полном поезде</small></div>` : `<div><b class="num">−${Math.round((1 - ob / oa) * 100)}%</b><small>тесноты с ${slotStr(w.from)} до ${slotStr(w.to + 1)}</small></div>`}</div></div>`;
   }
   node.innerHTML = `
     <div class="verdict">
@@ -261,8 +236,44 @@ function renderDecision(node, dc, day, meta, t) {
     <p class="kicker" style="margin:16px 0 0">Что сделать</p>
     <ul class="measures">${ms}</ul>
     ${gain}
-    ${checks ? `<p class="kicker" style="margin:16px 0 0">Ограничения линии</p>${checks}` : ""}
-    <div class="linestate"><span>Линия сейчас:</span><span><b>${sgnPct(dc.lr - 1)}</b> поток за час к обычному</span><span><b>${trains}</b> из ${meta.c.max_trains} составов</span><span><b>${dec(P, 0)}</b> пар/ч из ${dec(meta.c.max_pairs)}</span></div>`;
+    ${checks ? `<p class="kicker" style="margin:16px 0 0">Можно ли это сделать</p>${checks}` : ""}
+    <div class="linestate"><span>Линия сейчас:</span><span>поездов на линии <b>${trains}</b> из ${meta.c.max_trains}</span><span><b>${dec(P, 0)}</b> ${pl(P, "поезд", "поезда", "поездов")} в час, можно до ${Math.floor(meta.c.max_pairs)}</span></div>`;
 }
 
 const cap = s => s[0].toUpperCase() + s.slice(1);
+
+function pl(n, one, few, many) {
+  n = Math.abs(Math.round(n)); const m10 = n % 10, m100 = n % 100;
+  return m10 === 1 && m100 !== 11 ? one : m10 >= 2 && m10 <= 4 && (m100 < 12 || m100 > 14) ? few : many;
+}
+const more = r => Math.abs(r) < 0.03 ? "как обычно" : `на ${Math.round(Math.abs(r) * 100)}% ${r > 0 ? "больше" : "меньше"} обычного`;
+
+/* тексты расчёта — языком диспетчерской, без «пар/ч» и сокращений */
+function plain(t) {
+  return t
+    .replace("Составы не добавить: линия на пределе пропускной способности", "Добавить поезд нельзя: они уже идут с минимальным интервалом")
+    .replace("предупредить станции сектора и подготовить регулирование входа на самых загруженных вестибюлях", "Предупредите станции участка: может понадобиться ограничить вход на самых загруженных")
+    .replace("по графику парность снижается, а поток ещё выше нормы; составы уже на линии, ввод не нужен", "По графику поезда уходят в депо, а людей ещё больше нормы. Поезда уже на линии, их достаточно не уводить")
+    .replace(/^Составы не добавлять: к центру до (\d[\d ]*) чел\. в составе \((\d+)% нормы\)/, "Добавлять поезда не нужно: в поезде до $1 человек, это $2% нормы")
+    .replace("поток выше обычного, но на перегонах, где загрузку можно оценить, место есть; по центру — доклады дежурных станций", "Людей больше обычного, но в поездах есть место. По центру ориентируйтесь на доклады дежурных")
+    .replace(/^поток (-?[−\d]+)% к обычному дню; загрузка остаётся ниже (\d+)% нормы, интервал в пределах графика/, (m, p, n) => `Людей на ${String(p).replace(/[-−]/, "")}% меньше обычного, поезда заполнены меньше чем на ${n}%`)
+    .replace(/^резерв выходит за (\d+)–(\d+) мин и успевает/, "Резервный поезд выезжает за $1–$2 мин и успевает")
+    .replace(/^перегрузка через (\d+) мин: резерв успеет только к (\d\d:\d\d)/, "Тесно станет через $1 мин, резерв успеет только к $2")
+    .replace(/Не снимать составы до (\d\d:\d\d): держать (\d+) пар\/ч/, (m, h, n) => `Не уводить поезда в депо до ${h}: оставить ${n} ${pl(n, "поезд", "поезда", "поездов")} в час`)
+    .replace(/Выпустить (\d+) сост\. раньше графика из депо ([^,]+), \+(\d+) пар\/ч/, (m, n, d, p) => `Выпустить ${n} ${pl(n, "поезд", "поезда", "поездов")} из депо ${d} раньше графика`)
+    .replace(/Выдать (\d+) сост\. из резерва депо ([^,]+), \+(\d+) пар\/ч/, (m, n, d) => `Выпустить ${n} ${pl(n, "резервный поезд", "резервных поезда", "резервных поездов")} из депо ${d}`)
+    .replace(/Снять (\d+) сост\. в депо, −(\d+) пар\/ч/, (m, n) => `Отправить ${n} ${pl(n, "поезд", "поезда", "поездов")} в депо`);
+}
+
+function checkText(c) {
+  if (c.rule.startsWith("Запас по интервалу")) {
+    const m = c.note.match(/(\d+) из ([\d,]+)/);
+    return ["Можно ли пустить поезда чаще", m ? (c.ok ? `да, сейчас ${m[1]} в час, предел ${Math.floor(+m[2].replace(",", "."))}` : `нет, уже ${m[1]} в час, это предел`) : c.note];
+  }
+  if (c.rule.startsWith("Свободные составы")) return ["Есть ли свободные поезда", c.note.replace("на линии", "на линии уже")];
+  if (c.rule.startsWith("Резерв успевает")) {
+    const m = c.note.match(/(\d+) мин до начала, выход (\d+)–(\d+)/);
+    return ["Успеет ли резерв из депо", m ? `до тесноты ${m[1]} мин, выезд ${m[2]}–${m[3]} мин` : c.note];
+  }
+  return [c.rule, c.note];
+}

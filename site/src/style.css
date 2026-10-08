@@ -316,3 +316,29 @@ details.more[open] > summary::before { content: "−"; }
 .linemap .lm-dev.dn { fill: var(--blue); font-weight: 700; }
 #p-off button { white-space: nowrap; }
 @media (max-width: 640px) { #p-off .u { display: none; } }
+
+/* шапка пульта */
+.pult-head { padding: 22px 0 12px; justify-content: space-between; }
+.pult-head .clock { text-align: right; }
+.daysel { display: inline-flex; align-items: center; gap: 8px; margin-right: 14px; font-size: 14px; color: var(--ink-3); }
+.daysel select { font: inherit; font-size: 14px; font-weight: 600; color: var(--ink); background: var(--sheet); border: 1px solid var(--rule); border-radius: 8px; padding: 6px 10px; }
+.pult-head .meta { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 0; }
+.transport { padding: 0 0 26px; border-bottom: 2px solid var(--ink); margin-bottom: 4px; align-items: start; }
+.transport .rail { margin-top: 4px; }
+.rail-key { display: flex; flex-wrap: wrap; gap: 4px 16px; margin-top: 26px; font-size: 12.5px; color: var(--ink-2); }
+.rail-key i { display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin-right: 6px; vertical-align: -1px; }
+.daystrip h3 { margin: 0; }
+@media (max-width: 640px) {
+  .pult-head { flex-wrap: nowrap; align-items: flex-start; gap: 12px; padding-top: 16px; }
+  .pult-day h1 { font-size: 24px; }
+  .pult-head .clock { font-size: 38px; }
+  .pult-head .meta { font-size: 13px; }
+  .rail-key { margin-top: 24px; font-size: 12px; }
+}
+.transport { grid-template-columns: auto minmax(0, 1fr); border-bottom: 0; padding-bottom: 22px; }
+.pult-grid > .right { min-width: 0; }
+.checks li { grid-template-columns: 22px 1fr; }
+.checks em { grid-column: 2; text-align: left; font-size: 13px; margin-top: -2px; }
+.gain-row div { white-space: normal; }
+@media (max-width: 640px) { .transport { grid-template-columns: 1fr; } }
+.daysel { white-space: nowrap; }
