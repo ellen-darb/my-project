@@ -124,17 +124,24 @@ def run(effect_days, calendar):
     groups = {"weekday_sep": (["weekday_sep"], yd["weekday_sep"], "weekday"),
               "weekday_summer": (["weekday_summer"], yd["weekday_summer"], "weekday"),
               "weekend": (["weekend"], yd["weekend"], "weekend")}
-    annual = {"add_h": 0.0, "cut_h": 0.0, "dover": 0.0, "dwait_h": 0.0}
-    rows = []
-    for name, (sg, n, wdk) in groups.items():
-        for k in ("normal", "surge", "drop"):
-            nd = n * rate[wdk][k]
-            r = {"group": name, "cls": k, "days": nd}
-            for col in annual:
-                v = mean_of(sg, k, col)
-                r[col] = v
-                annual[col] += nd * v
-            rows.append(r)
+    def annual_for(anom_scale=1.0):
+        """Годовые суммы; anom_scale меняет долю аномальных дней (остальные — обычные)."""
+        annual = {"add_h": 0.0, "cut_h": 0.0, "dover": 0.0, "dwait_h": 0.0}
+        rows = []
+        for name, (sg, n, wdk) in groups.items():
+            ra = {k: rate[wdk][k] * anom_scale for k in ("surge", "drop")}
+            ra["normal"] = 1 - ra["surge"] - ra["drop"]
+            for k in ("normal", "surge", "drop"):
+                nd = n * ra[k]
+                r = {"group": name, "cls": k, "days": nd}
+                for col in annual:
+                    v = mean_of(sg, k, col)
+                    r[col] = v
+                    annual[col] += nd * v
+                rows.append(r)
+        return annual, rows
+
+    annual, rows = annual_for()
 
     def money(sc):
         cost = annual["add_h"] * uc["add_train_h"][sc]
@@ -157,6 +164,35 @@ def run(effect_days, calendar):
     pilot = sum(s * k for _, s, k in team) * INSURANCE * pilot_months
     support = 220_000 * 0.5 * INSURANCE * 12
 
+    # чувствительность: меняем по одному допущению, остальное как в базовом сценарии
+    def net_of(ann, add_price, cut_price):
+        cost, save = ann["add_h"] * add_price, ann["cut_h"] * cut_price
+        return {"net": save - cost, "per_pax": (cost - save) / max(ann["dover"], 1)}
+    add_b, cut_b = uc["add_train_h"]["base"], uc["cut_train_h"]["base"]
+    base_pt = net_of(annual, add_b, cut_b)
+    per_year = sum(n * (rate[w]["surge"] + rate[w]["drop"]) for _, (_, n, w) in groups.items())
+    km = CAR_KM_PER_TRAIN_H
+    e_all = ENERGY_RUB / CAR_KM
+    drv_b, drv_c = uc["driver_h"]["base"], uc["driver_h"]["cons"]
+    variants = [
+        ("Цена добавленного поездо-часа", "предельная 12,9 тыс. ₽", "с амортизацией и всей энергией",
+         (annual, add_b, cut_b), (annual, uc["add_train_h"]["cons"], cut_b)),
+        ("Аномальных дней в году", "50 (порог 15%)", "113 (порог 10%)",
+         (annual_for(50 / per_year)[0], add_b, cut_b), (annual_for(113 / per_year)[0], add_b, cut_b)),
+        ("Машинист, ₽ в час", f"{drv_b:,.0f} (без отпуска)".replace(",", " "), f"{drv_c:,.0f} (с отпуском и резервом)".replace(",", " "),
+         (annual, add_b, cut_b), (annual, add_b + drv_c - drv_b, cut_b)),
+        ("Экономия при снятии", "энергия + ремонт", "только энергия тяги",
+         (annual, add_b, cut_b), (annual, add_b, uc["cut_train_h"]["cons"])),
+        ("Доля тяги в энергии", "70%", "100% энергии",
+         (annual, add_b, cut_b), (annual, add_b + km * e_all * (1 - TRACTION_SHARE[0]), cut_b + km * e_all * (1 - TRACTION_SHARE[0]))),
+    ]
+    sensitivity = []
+    for name, lo_l, hi_l, lo, hi in variants:
+        a, b = net_of(*lo), net_of(*hi)
+        sensitivity.append({"driver": name, "lo_label": lo_l, "hi_label": hi_l,
+                            "lo_net": a["net"], "hi_net": b["net"], "lo_pp": a["per_pax"], "hi_pp": b["per_pax"]})
+    sensitivity.sort(key=lambda r: -abs(r["hi_net"] - r["lo_net"]))
+
     import anomalies
     sens = []
     for thr in (0.10, 0.12, 0.15):
@@ -168,9 +204,10 @@ def run(effect_days, calendar):
     anomalies.THR = 0.12
     return {
         "anomaly_sens": sens,
+        "sensitivity": {"base_net": base_pt["net"], "base_pp": base_pt["per_pax"], "rows": sensitivity},
         "sources": SOURCES, "unit": uc, "year_days": yd,
         "anomaly": {"unplanned_days": n_unpl, "anomalous_days": n_anom, "rate": rate,
-                    "per_year": sum(n * (rate[w]["surge"] + rate[w]["drop"]) for _, (_, n, w) in groups.items())},
+                    "per_year": per_year},
         "by_type": rows, "annual": annual, "cons_annual": cons_annual,
         "base": money("base"), "cons": cons,
         "pilot": {"team": team, "months": pilot_months, "rub": pilot, "support_year": support},

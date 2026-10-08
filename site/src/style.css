@@ -232,3 +232,21 @@ summary { cursor: pointer; font-weight: 600; }
   .pult-head { gap: 12px 24px; }
   .month { grid-template-columns: 44px 1fr; }
 }
+
+/* чувствительность */
+.tor { margin-top: 20px; border-top: 1px solid var(--rule); }
+.tor-row { display: grid; grid-template-columns: minmax(150px, 1fr) minmax(200px, 1.6fr) minmax(220px, 1.2fr); gap: 20px; align-items: center; padding: 12px 0; border-bottom: 1px solid var(--rule-2); }
+.tor-head { padding: 4px 0 0; border-bottom: none; }
+.tor-head .tor-v { font-size: 13px; color: var(--ink-3); }
+.tor-k { font-weight: 600; }
+.tor svg { display: block; width: 100%; height: 28px; }
+.tor-axis { height: 22px !important; }
+.tor-v { display: flex; flex-direction: column; gap: 2px; font-size: 14px; color: var(--ink-2); }
+.tor-v b { color: var(--ink); margin-right: 4px; }
+@media (max-width: 640px) {
+  .tor-row { grid-template-columns: 1fr; gap: 6px; }
+  .tor-head > div:first-child, .tor-head .tor-v { display: none; }
+}
+@media (max-width: 640px) {
+  table.t { display: block; max-width: 100%; overflow-x: auto; -webkit-overflow-scrolling: touch; }
+}

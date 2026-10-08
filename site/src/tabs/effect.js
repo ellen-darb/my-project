@@ -43,6 +43,14 @@ export async function render(app) {
   </div>
 
   <div class="section">
+    <div class="sec-head">
+      <div><p class="kicker">Чувствительность</p><h2>От чего зависит сумма</h2></div>
+      <p>Меняем по одному допущению, остальное как в базовом сценарии (−${mln(-e.sensitivity.base_net)} млн ₽, линия на графике). Главное — какую цену поездо-часа принять: с амортизацией вагонов расход вырастает в 2,3 раза. Больше аномальных дней не дороже, а дешевле: в дни провала Такт снимает составы.</p>
+    </div>
+    <div class="tor" id="ef-tor"></div>
+  </div>
+
+  <div class="section">
     <div class="cols-2">
       <div>
         <h2>Из чего цена поездо-часа</h2>
@@ -107,6 +115,7 @@ export async function render(app) {
   </div>`;
 
   document.getElementById("ef-months").innerHTML = `<thead><tr><th>Месяц</th><th class="r">Дней</th><th class="r">Поездок сверх нормы по графику</th><th class="r">С мерами Такта</th><th class="r">Изменение</th><th class="r">Поездо-часов</th></tr></thead><tbody>${ef.months.map(m => `<tr><td>${monthName(m.m)}</td><td class="r">${m.d}</td><td class="r">${fmt(m.plan_over_pax)}</td><td class="r">${fmt(m.system_over_pax)}</td><td class="r">${pct(m.system_over_pax / m.plan_over_pax - 1)}</td><td class="r">${m.system_train_h - m.plan_train_h >= 0 ? "+" : ""}${fmt(m.system_train_h - m.plan_train_h)}</td></tr>`).join("")}</tbody>`;
+  tornado(document.getElementById("ef-tor"), e.sensitivity);
   bars(document.getElementById("ef-bars"), [
     { k: "Базовый", cost: b.cost, save: b.save, net: b.net },
     { k: "Консервативный", cost: c.cost, save: c.save, net: c.net },
@@ -133,4 +142,34 @@ function bars(node, rows) {
       .text(`итого −${mln(-r.net)} млн ₽`);
     svg.append("text").attr("x", x(r.save) + 6).attr("y", y + 18).style("fill", "var(--ink-2)").text(`+${mln(r.save)}`);
   });
+}
+
+function tornado(node, sens) {
+  const all = sens.rows.flatMap(r => [r.lo_net, r.hi_net]).concat(sens.base_net);
+  const x0 = d3.min(all) * 1.06;
+  const v = n => `−${mln(-n)}`;
+  node.innerHTML = `<div class="tor-row tor-head"><div></div><svg class="tor-axis"></svg><div class="tor-v">млн ₽ в год</div></div>` +
+    sens.rows.map((r, i) => `<div class="tor-row"><div class="tor-k">${r.driver}</div><svg class="tor-bar" data-i="${i}"></svg>
+      <div class="tor-v"><span><b class="num">${v(r.lo_net)}</b> ${r.lo_label}</span><span><b class="num">${v(r.hi_net)}</b> ${r.hi_label}</span></div></div>`).join("");
+  const draw = (svgEl, fn) => {
+    const W = Math.max(120, svgEl.getBoundingClientRect().width), H = +getComputedStyle(svgEl).height.replace("px", "") || 28;
+    const x = d3.scaleLinear().domain([x0, 0]).range([2, W - 10]);
+    const svg = d3.select(svgEl).attr("width", W).attr("height", H).html("");
+    fn(svg, x, W, H);
+  };
+  draw(node.querySelector(".tor-axis"), (svg, x, W, H) => {
+    svg.append("g").attr("class", "axis").attr("transform", `translate(0,${H - 4})`)
+      .call(d3.axisTop(x).ticks(W < 260 ? 3 : 5).tickSize(0).tickFormat(t => t === 0 ? "0" : `−${dec(-t / 1e6, 0)}`));
+  });
+  node.querySelectorAll(".tor-bar").forEach(el => draw(el, (svg, x, W, H) => {
+    const r = sens.rows[+el.dataset.i], a = Math.min(r.lo_net, r.hi_net), b = Math.max(r.lo_net, r.hi_net);
+    const y = H / 2 - 7, base = sens.base_net;
+    svg.append("rect").attr("x", 0).attr("y", y).attr("width", W).attr("height", 14).attr("fill", "var(--rule-2)").attr("rx", 3);
+    if (a < base) svg.append("rect").attr("x", x(a)).attr("y", y).attr("width", Math.max(2, x(Math.min(b, base)) - x(a) - 1)).attr("height", 14).attr("rx", 3).attr("fill", "var(--red)");
+    if (b > base) svg.append("rect").attr("x", x(Math.max(a, base)) + 1).attr("y", y).attr("width", Math.max(2, x(b) - x(Math.max(a, base)) - 1)).attr("height", 14).attr("rx", 3).attr("fill", "var(--blue)");
+    svg.append("line").attr("x1", x(base)).attr("x2", x(base)).attr("y1", 0).attr("y2", H).attr("stroke", "var(--ink)").attr("stroke-width", 2);
+    svg.append("rect").attr("x", 0).attr("y", 0).attr("width", W).attr("height", H).attr("fill", "transparent")
+      .on("mousemove", ev => tipShow(ev, `<b>${r.driver}</b><br>${r.lo_label}: ${v(r.lo_net)} млн ₽, ${fmt(r.lo_pp)} ₽ за поездку<br>${r.hi_label}: ${v(r.hi_net)} млн ₽, ${fmt(r.hi_pp)} ₽ за поездку`))
+      .on("mouseleave", tipHide);
+  }));
 }
