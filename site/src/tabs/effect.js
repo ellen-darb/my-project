@@ -27,11 +27,12 @@ export async function render(app) {
 
   <div class="section">
     <div class="sec-head">
-      <div><p class="kicker">Расходы и экономия</p><h2>Добавленные поездо-часы против снятых</h2></div>
+      <div><h2>Добавленные поездо-часы против снятых</h2></div>
       <p>Добавляем в основном утром: составы уходят в депо не в 09:00, а позже, и выпуск чуть раньше в 07:45. Снимаем, когда поток по линии ниже обычного на 15%+ и загрузка ниже 70% нормы. Экономия от снятия меньше цены добавления: машинист на смене всё равно, экономятся только энергия и ремонт.</p>
     </div>
     <div id="ef-bars"></div>
-    <table class="t" style="margin-top:20px">
+    <details class="more" style="margin-top:12px"><summary>Таблица по сценариям</summary>
+    <table class="t">
       <thead><tr><th></th><th class="r">Поездо-часов в год</th><th class="r">Базовый, ₽ за час</th><th class="r">Базовый, млн ₽</th><th class="r">Консервативный, ₽ за час</th><th class="r">Консервативный, млн ₽</th></tr></thead>
       <tbody>
         <tr><td>Добавить или удержать составы</td><td class="r">+${fmt(a.add_h)}</td><td class="r">${fmt(u.add_train_h.base)}</td><td class="r">−${mln(b.cost)}</td><td class="r">${fmt(u.add_train_h.cons)}</td><td class="r">−${mln(c.cost)}</td></tr>
@@ -40,11 +41,12 @@ export async function render(app) {
       </tbody>
     </table>
     <p class="note">Консервативный сценарий: вся электроэнергия метро (не только тяга), амортизация вагонов, машинист с учётом отпуска до 45 дней, аномальных дней на 50% больше, а при снятии экономится только энергия на тягу.</p>
+    </details>
   </div>
 
   <div class="section">
     <div class="sec-head">
-      <div><p class="kicker">Чувствительность</p><h2>От чего зависит сумма</h2></div>
+      <div><h2>От чего зависит сумма</h2></div>
       <p>Меняем по одному допущению, остальное как в базовом сценарии (−${mln(-e.sensitivity.base_net)} млн ₽, линия на графике). Главное — какую цену поездо-часа принять: с амортизацией вагонов расход вырастает в 2,3 раза. Больше аномальных дней не дороже, а дешевле: в дни провала Такт снимает составы.</p>
     </div>
     <div class="tor" id="ef-tor"></div>
@@ -52,7 +54,7 @@ export async function render(app) {
 
   <div class="section">
     <div class="sec-head">
-      <div><p class="kicker">Главное допущение</p><h2>Сколько из этого держится на доле тех, кто едет к центру</h2></div>
+      <div><h2>Сколько из этого держится на доле тех, кто едет к центру</h2></div>
       <p>Доля α не измерена. По данным она не выше 0,89 для севера (см. «Методику»); принято 0,85. Ниже — 120 проигранных дней при разных α: Такт принимает решения и мы оцениваем их при одном и том же значении. Время ожидания тоже меняется, потому что при другом α Такт принимает другие решения.</p>
     </div>
     <table class="t" id="ef-alpha"></table>
@@ -122,10 +124,11 @@ export async function render(app) {
   </div>
   </details>
 
+  <details class="more"><summary>Источники цифр (${Object.keys(S).length})</summary>
   <div class="section">
-    <h2>Источники</h2>
     <ol class="src-list">${Object.keys(S).map(k => `<li>${src(k)}</li>`).join("")}</ol>
-  </div>`;
+  </div>
+  </details>`;
 
   document.getElementById("ef-months").innerHTML = `<thead><tr><th>Месяц</th><th class="r">Дней</th><th class="r">Поездок сверх нормы по графику</th><th class="r">С мерами Такта</th><th class="r">Изменение</th><th class="r">Поездо-часов</th></tr></thead><tbody>${ef.months.map(m => `<tr><td>${monthName(m.m)}</td><td class="r">${m.d}</td><td class="r">${fmt(m.plan_over_pax)}</td><td class="r">${fmt(m.system_over_pax)}</td><td class="r">${pct(m.system_over_pax / m.plan_over_pax - 1)}</td><td class="r">${m.system_train_h - m.plan_train_h >= 0 ? "+" : ""}${fmt(m.system_train_h - m.plan_train_h)}</td></tr>`).join("")}</tbody>`;
   tornado(document.getElementById("ef-tor"), e.sensitivity);

@@ -49,13 +49,13 @@ export async function render(app) {
       <div class="big"><div class="v">−${Math.round((1 - pr.over_new_day / pr.over_plan_day) * 100)}<small>%</small></div><div class="k">пассажиров сверх нормы: ${fmt(pr.over_plan_day)} → ${fmt(pr.over_new_day)} в день</div><div class="src">сентябрь, фактические турникеты</div></div>
       <div class="big"><div class="v">${fmt(pr.wait_saved_h_day)}</div><div class="k">пассажиро-часов ожидания меньше в день</div><div class="src">ожидание = половина интервала</div></div>
     </div>
-    <table class="t" style="margin-top:24px" id="pl-tab"></table>
+    <details class="more" style="margin-top:24px"><summary>Все изменения листа графика по интервалам</summary><table class="t" id="pl-tab"></table></details>
   </div>
 
   <div class="section">
     <div class="sec-head">
-      <div><p class="kicker">Варианты и их цена</p><h2>Чем дольше держать составы, тем меньше ждут, но давка уходит не вся</h2></div>
-      <p>Пассажиров сверх нормы считаем через долю α тех, кто едет к центру. Её не измеряли, поэтому показываем три значения: 0,75, принятое 0,85 и 0,89 — оценку сверху по данным (см. «Методику»). Время ожидания от α не зависит: оно считается по всем входам линии и интервалу, поэтому это самый надёжный эффект.</p>
+      <div><h2>Чем дольше держать составы, тем меньше ждут, но давка уходит не вся</h2></div>
+      <p>Пассажиров сверх нормы считаем через долю α тех, кто едет к центру. Её не измеряли, поэтому даём три значения. Время ожидания от α не зависит, это самый надёжный эффект.</p>
     </div>
     <table class="t" id="pl-var"></table>
     <div class="cols-2" style="margin-top:20px">

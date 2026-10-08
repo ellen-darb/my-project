@@ -31,7 +31,7 @@ export async function render(app, params) {
   let seen = false;
   try { seen = localStorage.getItem("takt-hint") === "1"; } catch (e) { /* хранилище недоступно */ }
   app.innerHTML = `
-  ${seen ? "" : `<div class="hint" id="p-hint"><div><b>Как читать пульт.</b> Это проигрывание реального дня по турникетам: Такт видит только прошлое до момента «Сейчас». На графике движения цвет нитки показывает, сколько человек в составе. Рядом — что Такт советует диспетчеру и проходит ли мера ограничения линии. Нажмите «Проиграть» или выберите день внизу страницы.</div><button class="btn" id="p-hint-x">Понятно</button></div>`}
+  ${seen ? "" : `<div class="hint" id="p-hint"><div><b>Реальный день по турникетам.</b> Такт видит только прошлое до «Сейчас». Цвет нитки — сколько человек в составе, справа — совет диспетчеру. Нажмите «Проиграть».</div><button class="btn" id="p-hint-x">Понятно</button></div>`}
   <div class="pult-head">
     <div class="pult-day"><p class="kicker">Пульт диспетчера · линия 1 · проигрывание реального дня</p><h1 id="p-day"></h1><div class="meta" id="p-meta"></div><button class="btn" id="p-csv" hidden style="margin-top:10px">Скачать рекомендации дня, CSV</button></div>
     <div class="clock"><small>Сейчас</small><span id="p-clock"></span></div>
@@ -55,10 +55,10 @@ export async function render(app, params) {
         <span><i style="background:var(--unknown)"></i>центр и выезд: по турникетам не оценить</span>
       </div>
       <div id="p-marey"></div>
-      <p class="note">Нитки построены по парности листа «График оборота составов» (время хода 46 мин в одну сторону), а не по точному расписанию. Загрузка: 85% вошедших на станциях сектора едут к центру; составов за 15 минут — парность / 4.</p>
     </div>
     <div class="right" id="p-dec"></div>
   </div>
+  <details class="more" id="p-more"><summary>Поток к центру и парность за весь день</summary>
   <div class="sectors">
     <div><div class="chart-title"><h3>Север → центр</h3><span class="note">перегон Пл. Ленина → Чернышевская</span></div><div id="p-north"></div></div>
     <div><div class="chart-title"><h3>Юг → центр</h3><span class="note">перегон Нарвская → Балтийская</span></div><div id="p-south"></div></div>
@@ -73,6 +73,7 @@ export async function render(app, params) {
   <div class="sectors" style="grid-template-columns: 1fr">
     <div><div class="chart-title"><h3>Парность: лист графика и с мерами Такта</h3><span class="legend"><span><i style="background:var(--ink)"></i>лист графика</span><span><i class="dash" style="color:var(--blue)"></i>с мерами, заливка — добавлено</span></span></div><div id="p-pairs"></div></div>
   </div>
+  </details>
   <div class="daystrip">
     <div class="chart-title"><h3>Выберите день: 120 дней с турникетами по 15 минут</h3>
       <span class="legend"><span>цвет — пассажиры сверх нормы за день по графику</span><span class="scale" id="p-dscale"></span></span></div>
@@ -176,6 +177,7 @@ export async function render(app, params) {
     const dc = day.dec[t - 24];
     renderDecision(document.getElementById("p-dec"), dc, day, meta, t);
 
+    if (!document.getElementById("p-more").open) return;
     const band = d3.range(1, 9).map(h => [fcst.q[h * 15][1], fcst.q[h * 15][3]]);
     const compact = innerWidth < 640;
     for (const s of ["north", "south"]) {
@@ -184,6 +186,7 @@ export async function render(app, params) {
     }
     pairsChart(document.getElementById("p-pairs"), { plan: day.plan, sys: day.sys, t, maxPairs: meta.c.max_pairs, height: 170, compact });
   }
+  document.getElementById("p-more").addEventListener("toggle", () => draw(false));
   await draw(true);
   return () => stop();
 }
