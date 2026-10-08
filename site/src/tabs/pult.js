@@ -31,15 +31,15 @@ export async function render(app, params) {
   let seen = false;
   try { seen = localStorage.getItem("takt-hint") === "1"; } catch (e) { /* хранилище недоступно */ }
   app.innerHTML = `
-  ${seen ? "" : `<div class="hint" id="p-hint"><div><b>Как читать пульт.</b> Это проигрывание реального дня по турникетам: Такт видит только прошлое до момента «Сейчас». Слева — график движения, цвет нитки показывает, сколько человек в составе. Справа — что Такт советует диспетчеру и проходит ли мера ограничения линии. Нажмите «Проиграть» или выберите день внизу.</div><button class="btn" id="p-hint-x">Понятно</button></div>`}
+  ${seen ? "" : `<div class="hint" id="p-hint"><div><b>Как читать пульт.</b> Это проигрывание реального дня по турникетам: Такт видит только прошлое до момента «Сейчас». На графике движения цвет нитки показывает, сколько человек в составе. Рядом — что Такт советует диспетчеру и проходит ли мера ограничения линии. Нажмите «Проиграть» или выберите день внизу страницы.</div><button class="btn" id="p-hint-x">Понятно</button></div>`}
   <div class="pult-head">
     <div class="pult-day"><p class="kicker">Пульт диспетчера · линия 1 · проигрывание реального дня</p><h1 id="p-day"></h1><div class="meta" id="p-meta"></div></div>
     <div class="clock"><small>Сейчас</small><span id="p-clock"></span></div>
     <div class="transport">
-      <button class="btn solid" id="p-play" aria-label="Проиграть">▶ Проиграть</button>
+      <div class="tbtns"><button class="btn solid" id="p-play" aria-label="Проиграть">▶ Проиграть</button>
       <button class="btn" id="p-back" aria-label="Назад на 15 минут">−15</button>
+      <button class="btn" id="p-fwd" aria-label="Вперёд на 15 минут">+15</button></div>
       <input type="range" id="p-range" min="24" max="87" step="1" aria-label="Время">
-      <button class="btn" id="p-fwd" aria-label="Вперёд на 15 минут">+15</button>
     </div>
   </div>
   <div class="rail-wrap"><div class="rail-lbl">Решения за день</div><div class="rail" id="p-rail"></div></div>
@@ -232,12 +232,7 @@ function renderDecision(node, dc, day, meta, t) {
     <ul class="measures">${ms}</ul>
     ${gain}
     ${checks ? `<p class="kicker" style="margin:16px 0 0">Ограничения линии</p>${checks}` : ""}
-    <div class="facts">
-      <div class="fact"><div class="v">${sgnPct(dc.lr - 1)}</div><div class="k">поток за час к обычному дню</div></div>
-      <div class="fact"><div class="v">${trains}<small style="font-size:16px;color:var(--ink-3)"> / ${meta.c.max_trains}</small></div><div class="k">составов на линии</div></div>
-      <div class="fact"><div class="v">${dec(P, 0)}</div><div class="k">пар в час, предел ${dec(meta.c.max_pairs)}</div></div>
-      <div class="fact"><div class="v">${fmt(Math.max(...dc.fc.north))}</div><div class="k">макс. к центру с севера за 2 ч</div></div>
-    </div>`;
+    <div class="linestate"><span>Линия сейчас:</span><span><b>${sgnPct(dc.lr - 1)}</b> поток за час к обычному</span><span><b>${trains}</b> из ${meta.c.max_trains} составов</span><span><b>${dec(P, 0)}</b> пар/ч из ${dec(meta.c.max_pairs)}</span></div>`;
 }
 
 const cap = s => s[0].toUpperCase() + s.slice(1);

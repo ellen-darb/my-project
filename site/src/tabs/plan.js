@@ -48,7 +48,6 @@ export async function render(app) {
       <div class="big"><div class="v">+${dec(pr.extra_train_h_day)}</div><div class="k">поездо-часа в будний день</div><div class="src">разница составов на линии × 15 мин</div></div>
       <div class="big"><div class="v">−${Math.round((1 - pr.over_new_day / pr.over_plan_day) * 100)}<small>%</small></div><div class="k">пассажиров сверх нормы: ${fmt(pr.over_plan_day)} → ${fmt(pr.over_new_day)} в день</div><div class="src">сентябрь, фактические турникеты</div></div>
       <div class="big"><div class="v">${fmt(pr.wait_saved_h_day)}</div><div class="k">пассажиро-часов ожидания меньше в день</div><div class="src">ожидание = половина интервала</div></div>
-      <div class="big"><div class="v">0</div><div class="k">новых составов и изменений пропускной способности</div><div class="src">только время ухода в депо</div></div>
     </div>
     <table class="t" style="margin-top:24px" id="pl-tab"></table>
   </div>

@@ -17,12 +17,7 @@ export async function render(app, params) {
   </div></div>
 
   <div class="section">
-    <div class="big-row">
-      <div class="big"><div class="v">${A.anomalous_days}</div><div class="k">аномальных дней из ${A.unplanned_days} неплановых за 9 месяцев</div><div class="src">порог: ±12% два часа подряд по линии или сектору</div></div>
-      <div class="big"><div class="v">${S[2].per_year}–${S[0].per_year}</div><div class="k">в год при пороге 15% … 10%</div><div class="src">базовая оценка — ${S[1].per_year} при 12%</div></div>
-      <div class="big"><div class="v">${pct(lbl.weekday.surge + lbl.weekday.drop)}</div><div class="k">будних дней</div><div class="src">выше обычного ${pct(lbl.weekday.surge)}, ниже ${pct(lbl.weekday.drop)}</div></div>
-      <div class="big"><div class="v">${pct(lbl.weekend.surge + lbl.weekend.drop)}</div><div class="k">выходных дней</div><div class="src">выше ${pct(lbl.weekend.surge)}, ниже ${pct(lbl.weekend.drop)}: в выходные поток скачет сильнее</div></div>
-    </div>
+    <p class="statline">За девять месяцев — <b>${A.anomalous_days}</b> аномальных дней из ${A.unplanned_days} неплановых: поток два часа подряд на 12% выше или ниже обычного по линии или сектору. В пересчёте на год это <b>${Math.round(A.per_year)}</b> дней; при пороге 15% — ${S[2].per_year}, при 10% — ${S[0].per_year}. В выходные поток скачет сильнее: аномальны <b>${pct(lbl.weekend.surge + lbl.weekend.drop)}</b> выходных против ${pct(lbl.weekday.surge + lbl.weekday.drop)} будних.</p>
   </div>
 
   <div class="section">
@@ -65,7 +60,7 @@ export async function render(app, params) {
       <div class="sec-head"><div><p class="kicker">${weekdayS(sel)} · ${c.planned ? "плановый день" : c.kinds.length ? "аномалия" : "обычный день"}</p><h2>${dayLong(sel)}: ${sgnPct(c.dev)} к обычному</h2></div>
       <p>${describe(c)}</p></div>
       ${taktBox(days.find(x => x.d === sel))}
-      <div class="chart-title"><h3>Вход по станциям и часам к обычному дню</h3><span class="note">станции с юга (внизу) на север (вверху), как на схеме</span></div>
+      <div class="chart-title"><h3>Вход по станциям и часам к обычному дню</h3><span class="note">станции с юга (внизу) на север (вверху), как на схеме · <i class="sw" style="background:#2F5DA8"></i> на 60% ниже обычного … <i class="sw" style="background:#ECE9E2"></i> как обычно … <i class="sw" style="background:#D6083B"></i> на 60% выше</span></div>
       <div id="an-heat"></div>`;
     heat(document.getElementById("an-heat"), X, B, meta.stations);
   }

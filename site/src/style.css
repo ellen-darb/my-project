@@ -3,7 +3,7 @@
   --sheet: #FBFAF7;
   --ink: #141413;
   --ink-2: #4B4A46;
-  --ink-3: #85837C;
+  --ink-3: #6B6962;
   --rule: #DCD8CF;
   --rule-2: #E9E6DF;
   --red: #D6083B;          /* линия 1 и «выше нормы» */
@@ -19,14 +19,14 @@
 }
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
-    --paper: #151514; --sheet: #1C1C1A; --ink: #F1EFE9; --ink-2: #B9B6AD; --ink-3: #7E7B73;
+    --paper: #151514; --sheet: #1C1C1A; --ink: #F1EFE9; --ink-2: #B9B6AD; --ink-3: #9C998F;
     --rule: #34332F; --rule-2: #2A2926; --red: #FF4D6D; --red-ink: #FF6B85; --amber: #E39B2D;
     --blue: #7FA6EA; --green: #6CC08F; --band: rgba(241, 239, 233, 0.08); --unknown: #4A4843; --ok-bg: #22291F;
     color-scheme: dark;
   }
 }
 :root[data-theme="dark"] {
-  --paper: #151514; --sheet: #1C1C1A; --ink: #F1EFE9; --ink-2: #B9B6AD; --ink-3: #7E7B73;
+  --paper: #151514; --sheet: #1C1C1A; --ink: #F1EFE9; --ink-2: #B9B6AD; --ink-3: #9C998F;
   --rule: #34332F; --rule-2: #2A2926; --red: #FF4D6D; --red-ink: #FF6B85; --amber: #E39B2D;
   --blue: #7FA6EA; --green: #6CC08F; --band: rgba(241, 239, 233, 0.08); --unknown: #4A4843; --ok-bg: #22291F;
   color-scheme: dark;
@@ -72,7 +72,7 @@ h1 { font-size: 44px; line-height: 1.05; letter-spacing: -0.03em; font-weight: 8
 h2 { font-size: 26px; line-height: 1.15; letter-spacing: -0.02em; font-weight: 700; margin: 0 0 6px; }
 h3 { font-size: 17px; font-weight: 700; margin: 0 0 4px; }
 .sub { color: var(--ink-2); max-width: 70ch; margin: 10px 0 0; font-size: 17px; }
-.note { color: var(--ink-3); font-size: 13px; }
+.note { color: var(--ink-2); font-size: 14px; }
 .section { padding: 36px 0; border-bottom: 1px solid var(--rule); }
 .section:last-child { border-bottom: 0; }
 .sec-head { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.2fr); gap: 40px; margin-bottom: 20px; }
@@ -85,8 +85,9 @@ p { max-width: 72ch; }
 .pult-day .meta { color: var(--ink-2); margin-top: 6px; }
 .clock { font-size: 64px; font-weight: 800; letter-spacing: -0.04em; line-height: 0.9; font-variant-numeric: tabular-nums; }
 .clock small { display: block; font-size: 13px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: var(--ink-3); margin-bottom: 6px; }
-.transport { display: flex; align-items: center; gap: 12px; flex: 1 1 320px; min-width: 0; }
-.transport input[type=range] { flex: 1; min-width: 60px; accent-color: var(--red); }
+.transport { display: grid; grid-template-columns: 250px 1fr; align-items: center; gap: 16px; flex: 1 1 100%; min-width: 0; }
+.tbtns { display: flex; gap: 8px; }
+.transport input[type=range] { width: 100%; margin: 0; accent-color: var(--red); }
 .btn {
   border: 1.5px solid var(--ink); background: transparent; border-radius: 999px; padding: 7px 16px;
   font-weight: 600; cursor: pointer; font-size: 14px; white-space: nowrap;
@@ -108,7 +109,7 @@ p { max-width: 72ch; }
 .scale { display: inline-flex; height: 10px; width: 160px; border-radius: 2px; overflow: hidden; vertical-align: middle; margin: 0 6px; }
 
 /* лента решений */
-.rail-wrap { display: grid; grid-template-columns: 130px 1fr; gap: 16px; align-items: start; padding: 0 0 26px; }
+.rail-wrap { display: grid; grid-template-columns: 250px 1fr; gap: 16px; align-items: start; padding: 0 0 26px; }
 .rail-lbl { font-size: 13px; font-weight: 600; color: var(--ink-3); letter-spacing: .06em; text-transform: uppercase; padding-top: 6px; }
 .rail { position: relative; display: grid; grid-template-columns: repeat(64, minmax(0, 1fr)); gap: 2px; }
 .rail-c { height: 26px; border: 0; padding: 0; border-radius: 2px; cursor: pointer; background: color-mix(in srgb, var(--c) 30%, var(--paper)); color: var(--ink); font-size: 12px; display: grid; place-items: center; }
@@ -138,7 +139,7 @@ p { max-width: 72ch; }
   width: 36px; height: 36px; border-radius: 50%; display: grid; place-items: center; font-weight: 800; font-size: 18px;
   border: 2px solid var(--ink);
 }
-.measure b { display: block; font-size: 17px; line-height: 1.25; }
+.measure b { display: block; font-size: 19px; line-height: 1.25; }
 .measure span { color: var(--ink-2); font-size: 14px; }
 .checks { list-style: none; padding: 12px 0 0; margin: 0; font-size: 14px; }
 .checks li { display: grid; grid-template-columns: 22px 1fr auto; gap: 8px; padding: 5px 0; align-items: baseline; }
@@ -182,7 +183,7 @@ svg text { fill: var(--ink-2); font-family: var(--font); font-size: 12px; }
 .tip .muted { opacity: .7; }
 
 /* таблицы и плитки */
-.big-row { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); border-top: 2px solid var(--ink); }
+.big-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); border-top: 2px solid var(--ink); }
 .big { padding: 18px 20px 18px 0; border-right: 1px solid var(--rule); }
 .big + .big { padding-left: 20px; }
 .big:last-child { border-right: 0; }
@@ -228,8 +229,7 @@ summary { cursor: pointer; font-weight: 600; }
   .cell .mk { font-size: 10px; }
   .rail-wrap { grid-template-columns: 1fr; gap: 6px; }
   .rail-c b { display: none; }
-  .transport { flex-wrap: wrap; min-width: 0; width: 100%; }
-  .transport input[type=range] { order: 5; flex-basis: 100%; }
+  .transport { grid-template-columns: 1fr; gap: 10px; }
   .pult-head { gap: 12px 24px; }
   .month { grid-template-columns: 44px 1fr; }
 }
@@ -284,3 +284,17 @@ table.t tr.hl td { background: var(--band); }
   .hint { flex-direction: column; align-items: stretch; }
   .tabs { -webkit-mask-image: linear-gradient(90deg, transparent, #000 7%, #000 85%, transparent); mask-image: linear-gradient(90deg, transparent, #000 7%, #000 85%, transparent); }
 }
+
+/* строка состояния линии на пульте вместо четырёх плиток */
+.linestate { display: flex; flex-wrap: wrap; gap: 4px 18px; margin-top: 16px; padding-top: 12px; border-top: 1px solid var(--rule); font-size: 14px; color: var(--ink-2); }
+.linestate b { color: var(--ink); font-variant-numeric: tabular-nums; }
+@media (min-width: 641px) { .cell .mk { font-size: 13px; } }
+details.more { margin-top: 8px; border-top: 1px solid var(--rule); }
+details.more > summary { cursor: pointer; padding: 18px 0; font-weight: 700; font-size: 18px; list-style: none; }
+details.more > summary::-webkit-details-marker { display: none; }
+details.more > summary::before { content: "+"; display: inline-block; width: 24px; font-weight: 800; }
+details.more[open] > summary::before { content: "−"; }
+.statline { font-size: 21px; line-height: 1.45; max-width: 60ch; margin: 0; color: var(--ink-2); }
+.statline b { color: var(--ink); font-weight: 800; }
+@media (max-width: 640px) { .statline { font-size: 18px; } }
+.sw { display: inline-block; width: 12px; height: 12px; border-radius: 2px; vertical-align: -1px; margin: 0 2px; }
