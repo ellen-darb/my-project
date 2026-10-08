@@ -49,6 +49,7 @@ def main():
               "run_one_way": line.RUN_ONE_WAY_MIN, "line_km": line.LINE_KM},
         "w_ratio": simulate.W_RATIO,
     }
+    dump("meta.json", meta)
 
     # ---------- проигрывание дней ----------
     days_index, effect_rows = [], []
