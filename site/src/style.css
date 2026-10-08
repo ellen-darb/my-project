@@ -225,6 +225,7 @@ summary { cursor: pointer; font-weight: 600; }
   .lede { grid-template-columns: 1fr; }
   .cells { gap: 2px; }
   .cell { height: 24px; font-size: 0; }
+  .cell .mk { font-size: 10px; }
   .rail-wrap { grid-template-columns: 1fr; gap: 6px; }
   .rail-c b { display: none; }
   .transport { flex-wrap: wrap; min-width: 0; width: 100%; }
@@ -265,3 +266,9 @@ summary { cursor: pointer; font-weight: 600; }
 .fx-read em { font-style: normal; font-size: 14px; color: var(--ink-2); }
 @media (max-width: 640px) { .fx-slide { flex-direction: column; align-items: stretch; gap: 4px; } }
 .btn.on { background: var(--ink); color: var(--paper); }
+@media (max-width: 640px) {
+  .month { grid-template-columns: 1fr; gap: 4px; }
+  .month .lbl { font-size: 13px; }
+}
+.cell .mk { color: #141413; }
+.cell.dark .mk { color: #fff; }

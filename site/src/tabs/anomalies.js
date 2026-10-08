@@ -47,7 +47,7 @@ export async function render(app, params) {
       const loc = !c.planned && !mark && c.local?.length;
       const bg = c.planned ? "var(--rule)" : col(c.dev);
       const dark = !c.planned && Math.abs(c.dev) > 0.13;
-      return `<button class="cell${dark ? " dark" : ""}${loc ? " loc" : ""}${c.d === sel ? " sel" : ""}" data-d="${c.d}" style="grid-column:${dn};background:${bg}">${mark || dn}</button>`;
+      return `<button class="cell${dark ? " dark" : ""}${loc ? " loc" : ""}${c.d === sel ? " sel" : ""}" data-d="${c.d}" style="grid-column:${dn};background:${bg}">${mark ? `<span class="mk">${mark}</span>` : dn}</button>`;
     }).join("")}</div></div>`).join("")}</div>`;
   calNode.querySelectorAll(".cell").forEach(b => {
     const c = cal.find(x => x.d === b.dataset.d);
