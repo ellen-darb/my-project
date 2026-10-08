@@ -1,4 +1,5 @@
-data/
 __pycache__/
 node_modules/
 site/dist/
+
+# в репозитории: data/raw — архив ментора, data/*.csv.gz — таблицы из него, site/public/data — выгрузка для сайта
