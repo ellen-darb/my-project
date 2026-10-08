@@ -39,6 +39,7 @@ export async function render(app, params) {
       <button class="btn" id="p-fwd" aria-label="Вперёд на 15 минут">+15</button>
     </div>
   </div>
+  <div class="rail-wrap"><div class="rail-lbl">Решения за день</div><div class="rail" id="p-rail"></div></div>
   <div class="pult-grid">
     <div class="left">
       <div class="chart-title">
@@ -138,6 +139,7 @@ export async function render(app, params) {
     }
     const t = state.t;
     range.value = t;
+    drawRail(document.getElementById("p-rail"), day, t, tt => { state.t = tt; draw(false); });
     history.replaceState(null, "", `#pult?d=${state.d}&t=${t}`);
     document.getElementById("p-clock").textContent = slotStr(t + 1);
     document.querySelectorAll("#p-mode button").forEach(b => b.classList.toggle("on", b.dataset.m === state.mode));
@@ -161,6 +163,23 @@ export async function render(app, params) {
   }
   await draw(true);
   return () => stop();
+}
+
+function drawRail(node, day, t, go) {
+  if (node.dataset.d !== day.date) {
+    node.dataset.d = day.date;
+    node.innerHTML = day.dec.map(dc => {
+      const m = dc.m.map(x => ICON[x.type]).join("");
+      return `<button class="rail-c" data-t="${dc.t}" style="--c:${STATUS[dc.s].c}" aria-label="${slotStr(dc.t + 1)}: ${STATUS[dc.s].label}">${m ? `<b>${m[0]}</b>` : ""}</button>`;
+    }).join("") + `<div class="rail-ax">${[7, 9, 12, 15, 18, 21].map(h => `<span style="left:${(h * 4 - 25 + 0.5) / 64 * 100}%">${String(h).padStart(2, "0")}:00</span>`).join("")}</div>`;
+    node.querySelectorAll(".rail-c").forEach(b => {
+      const dc = day.dec[+b.dataset.t - 24];
+      b.onclick = () => go(+b.dataset.t);
+      b.onmouseenter = ev => tipShow(ev, `<b>${slotStr(dc.t + 1)}</b> · ${STATUS[dc.s].label}${dc.m.map(x => `<br>${x.text}`).join("")}`);
+      b.onmouseleave = tipHide;
+    });
+  }
+  node.querySelectorAll(".rail-c").forEach(b => b.classList.toggle("on", +b.dataset.t === t));
 }
 
 function renderDecision(node, dc, day, meta, t) {
