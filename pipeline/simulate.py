@@ -24,16 +24,21 @@ def run_day(day, Xd, Bd):
     plan = engine.pairs_profile(sched)
     P = plan.copy()
     log = []
+    prev = {}
     for t in ORIG:
         E, lr = forecast(Xd, Bd, t)
         dec = engine.decide(P, sched == "weekend", E, Bd, t, lr, plan)
         dec["line_ratio"] = round(lr, 3)
+        for m in dec["measures"]:       # одна и та же мера в соседних слотах — это «действует», а не новый совет
+            m["repeat"] = m["type"] in ("limit", "watch", "late") and prev.get(m["type"], -9) >= t - 1
+            if m["type"] in ("limit", "watch", "late"):
+                prev[m["type"]] = t
         for m in dec["measures"]:
             a, b = m.get("from", t + 1), m.get("to", t + 8)
             if m["type"] == "hold":
                 P[a:b + 1] = np.maximum(P[a:b + 1], m["pairs"])
             elif m["type"] == "add":
-                P[a:b + 1] = np.minimum(np.maximum(P[a:b + 1], plan[a:b + 1] + m["pairs"]), np.floor(line.MAX_PAIRS))
+                P[a:b + 1] = np.maximum(P[a:b + 1], np.minimum(plan[a:b + 1] + m["pairs"], np.floor(line.MAX_PAIRS)))   # никогда не ниже уже действующего
             elif m["type"] == "cut":
                 P[a:b + 1] = np.minimum(P[a:b + 1], plan[a:b + 1] - m["pairs"])
         log.append(dec)

@@ -1,3 +1,13 @@
+import "@fontsource/onest/cyrillic-400.css";
+import "@fontsource/onest/cyrillic-500.css";
+import "@fontsource/onest/cyrillic-600.css";
+import "@fontsource/onest/cyrillic-700.css";
+import "@fontsource/onest/cyrillic-800.css";
+import "@fontsource/onest/latin-400.css";
+import "@fontsource/onest/latin-500.css";
+import "@fontsource/onest/latin-600.css";
+import "@fontsource/onest/latin-700.css";
+import "@fontsource/onest/latin-800.css";
 import "./style.css";
 import { resetPalette } from "./lib/util.js";
 
@@ -5,6 +15,7 @@ const TABS = {
   pult: () => import("./tabs/pult.js"),
   plan: () => import("./tabs/plan.js"),
   anomalies: () => import("./tabs/anomalies.js"),
+  review: () => import("./tabs/review.js"),
 };
 
 const app = document.getElementById("app");
@@ -13,7 +24,7 @@ let cleanup = null, current = null;
 async function route() {
   const [name, q] = (location.hash.slice(1) || "pult").split("?");
   const tab = TABS[name] ? name : "pult";
-  if (tab === current && name === "pult" && cleanup) return;    // смена параметров внутри пульта
+  if (tab === current && name === "pult" && cleanup) { (await TABS.pult()).applyParams(new URLSearchParams(q || "")); return; }   // смена параметров внутри пульта
   current = tab;
   if (cleanup) { cleanup(); cleanup = null; }
   document.querySelectorAll("#tabs a").forEach(a => a.classList.toggle("on", a.getAttribute("href") === `#${tab}`));

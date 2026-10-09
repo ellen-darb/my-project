@@ -12,9 +12,9 @@ export async function render(app) {
   const k9 = 36;
   app.innerHTML = `
   <div class="lede"><div>
-    <p class="kicker">Для службы, которая составляет график</p>
-    <h1>Утром составов с севера не хватает каждый будний день. Так устроен сам график.</h1>
-    <p class="sub">С 07:45 до 09:30 в составе к центру с севера в среднем больше 960 человек. Добавить составы в 08:00 нельзя: на линии уже 53 из 53 при интервале 1:53. Но в 09:00 график снимает 6 пар, а поток к этому времени ещё ${fmt(f.north.p50[k9])} человек на состав.</p>
+    <p class="kicker">Для службы, которая составляет график · расчёт, а не измерение</p>
+    <h1>По расчёту, утром в будни составов с севера не хватает</h1>
+    <p class="sub">Загрузка здесь посчитана по входам на станциях при допущении, что к центру едет 85% входящих (выходов по станциям нет). С 07:45 до 09:30 в составе к центру с севера при этом допущении в среднем больше 960 человек. Добавить составы в 08:00 нельзя: на линии уже 53 из 53 при интервале 1:53.</p>
   </div></div>
 
   <div class="section">
@@ -41,21 +41,21 @@ export async function render(app) {
 
   <div class="section">
     <div class="sec-head">
-      <div><h2>Предлагаем: снимать составы после 09:30, а не в 09:00</h2></div>
-      <p>Составы для этого уже на линии, их просто дольше не уводят в депо. Парность подобрана так, чтобы обычный будний день укладывался в норму.</p>
+      <div><h2>Гипотеза для проверки: снимать составы после 09:30, а не в 09:00</h2></div>
+      <p>Лист графика задан по часам, поэтому «09:00» может быть округлением листа, а не реальным временем ухода составов. Исполненного графика в данных нет. Прежде чем менять график, это нужно проверить по исполненному графику и по датчикам загрузки. Составы для предложения уже на линии, их просто дольше не уводят в депо.</p>
     </div>
-    <div class="big-row">
-      <div class="big"><div class="v">−${Math.round((1 - pr.over_new_day / pr.over_plan_day) * 100)}<small>%</small></div><div class="k">пассажиров сверх нормы в будний день</div></div>
-      <div class="big"><div class="v">${fmt(pr.wait_saved_h_day)}</div><div class="k">часов ожидания меньше в день на всех пассажиров</div></div>
-      <div class="big"><div class="v">+${dec(pr.extra_train_h_day)}</div><div class="k">поездо-часа в день</div></div>
-    </div>
+    <h3>Насколько предложение зависит от допущения</h3>
+    <table class="t" id="pl-alpha"></table>
+    <p class="note" style="margin-top:10px">Будние дни сентября (${pr.test_days} дня), которые в подбор не входили. Подбор шёл по февралю и маю (${pr.fit_days} дня). Цена предложения одна: +${dec(pr.extra_train_h_day)} поездо-часа в день, это не зависит от допущения.</p>
     <h3 style="margin-top:28px">Что поменять в листе графика «рабочий с 01.09»</h3>
-    <table class="t" id="pl-tab"></table>
+    <div class="tscroll"><table class="t" id="pl-tab"></table></div>
   </div>`;
 
+  const vr = f.variants.rows[f.variants.rows.length - 1];
+  document.getElementById("pl-alpha").innerHTML = `<thead><tr><th>Едут к центру</th><th class="r">Сверх нормы сейчас, человек в день</th><th class="r">При предложении</th><th class="r">Меньше</th></tr></thead><tbody>${[["0.75", "75% входящих"], ["0.85", "85% (рабочее допущение)"], ["0.89", "89% (оценка сверху по данным)"]].map(([k, l]) => `<tr class="${k === "0.85" ? "hl" : ""}"><td>${l}</td><td class="r">${fmt(vr[k].over_plan)}</td><td class="r">${fmt(vr[k].over_new)}</td><td class="r"><b>${Math.round((1 - vr[k].over_new / vr[k].over_plan) * 100)}%</b></td></tr>`).join("")}</tbody>`;
   // таблица изменений
   const changes = d3.range(96).filter(k => f.need[k] !== f.pairs[k]);
-  document.getElementById("pl-tab").innerHTML = `<thead><tr><th>Интервал</th><th class="r">Сейчас, пар/ч</th><th class="r">Предлагаем</th><th class="r">Составов</th><th class="r">Человек в составе с севера сейчас</th><th class="r">При предложении</th></tr></thead><tbody>${changes.map(k => `<tr><td>${hhmm(k * 15)}–${hhmm(k * 15 + 15)}</td><td class="r">${f.pairs[k]}</td><td class="r"><b>${f.need[k]}</b></td><td class="r">+${Math.round(f.need[k] * 99 / 60) - Math.round(f.pairs[k] * 99 / 60)}</td><td class="r">${fmt(f.north.p50[k])}</td><td class="r">${fmt(f.north.p50[k] * f.pairs[k] / f.need[k])}</td></tr>`).join("")}</tbody>`;
+  document.getElementById("pl-tab").innerHTML = `<thead><tr><th>Интервал</th><th class="r">Сейчас, пар в час</th><th class="r">Предлагаем, пар в час</th><th class="r">Составов на линии: было → станет</th><th class="r">Человек в составе с севера сейчас</th><th class="r">При предложении</th></tr></thead><tbody>${changes.map(k => `<tr><td>${hhmm(k * 15)}–${hhmm(k * 15 + 15)}</td><td class="r">${f.pairs[k]}</td><td class="r"><b>${f.need[k]}</b></td><td class="r">${Math.round(f.pairs[k] * 99 / 60)} → ${Math.round(f.need[k] * 99 / 60)}</td><td class="r">${fmt(f.north.p50[k])}</td><td class="r">${fmt(f.north.p50[k] * f.pairs[k] / f.need[k])}</td></tr>`).join("")}</tbody>`;
 
   const draw = () => {
     document.querySelectorAll("#pl-s button").forEach(b => b.classList.toggle("on", b.dataset.k === st.s));
