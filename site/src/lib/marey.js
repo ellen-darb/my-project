@@ -25,31 +25,7 @@ export function trains(pairs) {
 /* время прохода станции i: S — от Девяткино (18) вниз, N — от Ветеранов (0) вверх */
 const at = (tr, i) => tr.dir === "S" ? tr.dep + (18 - i) * SEG_MIN : tr.dep + i * SEG_MIN;
 
-export function segLoads(tr, entries, pairs, meta) {
-  const alpha = meta.c.alpha;
-  const loads = new Array(18).fill(null);   // loads[k] — перегон между станциями k и k+1
-  const slotOf = m => Math.max(0, Math.min(95, Math.floor((m - 2) / 15)));
-  if (tr.dir === "S") {
-    let acc = 0;
-    for (let i = 18; i >= 11; i--) {
-      const m = at(tr, i), s = slotOf(m);
-      acc += entries(s)[i];
-      const n = (pairs[s] || 0) / 4;
-      loads[i - 1] = n > 0 ? alpha * acc / n : null;     // перегон i-1..i
-    }
-  } else {
-    let acc = 0;
-    for (let i = 0; i <= 4; i++) {
-      const m = at(tr, i), s = slotOf(m);
-      acc += entries(s)[i];
-      const n = (pairs[s] || 0) / 4;
-      loads[i] = n > 0 ? alpha * acc / n : null;          // перегон i..i+1
-    }
-  }
-  return loads;
-}
-
-export function drawMarey(node, { day, meta, nowMin, pairs, entriesAt, span = [-60, 120], height = 540 }) {
+export function drawMarey(node, { meta, nowMin, pairs, loadAt, span = [-60, 120], height = 540 }) {
   const W = width(node, 320);
   const narrow = W < 640;
   const M = { t: 26, r: narrow ? 8 : 132, b: 30, l: narrow ? 84 : 150 };
@@ -125,13 +101,12 @@ export function drawMarey(node, { day, meta, nowMin, pairs, entriesAt, span = [-
   const list = trains(pairs).filter(t => t.dep < hi && t.dep + 46 > lo);
   const segs = [];
   for (const tr of list) {
-    const L = segLoads(tr, entriesAt, pairs, meta);
     for (let k = 0; k < 18; k++) {
       const [i0, i1] = tr.dir === "S" ? [k + 1, k] : [k, k + 1];
       const t0 = at(tr, i0), t1 = at(tr, i1);
       if (t1 < nowMin + span[0] || t0 > nowMin + span[1]) continue;
       const inbound = (tr.dir === "S" && k >= 10) || (tr.dir === "N" && k <= 4);
-      segs.push({ tr, k, t0, t1, i0, i1, L: inbound ? L[k] : null, fc: (t0 + t1) / 2 > nowMin });
+      segs.push({ tr, k, t0, t1, i0, i1, L: inbound ? loadAt(k, (t0 + t1) / 2) : null, fc: (t0 + t1) / 2 > nowMin });
     }
   }
   const clip = defs.append("clipPath").attr("id", "mclip");

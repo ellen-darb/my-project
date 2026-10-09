@@ -1,39 +1,19 @@
 import * as d3 from "d3";
 import { fmt, sgnPct, tipShow, tipHide, width } from "./util.js";
-import { segLoads } from "./marey.js";
 
 /* Схема линии 1 сверху вниз, как на указателях в метро: Девяткино наверху, Пр. Ветеранов внизу.
    Толщина и цвет линии на перегоне — сколько человек в составе, который едет к центру.
    Справа от станции — сколько людей вошло за последний час и насколько это больше или меньше обычного. */
 
-const SEG_MIN = 46 / 18;
 const TRANSFER = new Set(["Пл. Восстания", "Владимирская", "Пушкинская", "Технологический ин-т"]);
 
-/* загрузка составов к центру на обоих секторах в момент timeMin; max — самый полный перегон */
-export function criticalLoads(timeMin, entriesAt, pairs, meta) {
-  const north = segLoads({ dir: "S", dep: timeMin - 7 * SEG_MIN }, entriesAt, pairs, meta);
-  const south = segLoads({ dir: "N", dep: timeMin - 4 * SEG_MIN }, entriesAt, pairs, meta);
-  const max = d3.max([...north.slice(10), ...south.slice(0, 5)].filter(v => v != null)) || 0;
-  return { north, south, max };
-}
-
-export function drawLineMap(node, { meta, timeMin, pairs, entriesAt, base, slot }) {
+export function drawLineMap(node, { meta, seg, ent, valid = true }) {
   const W = width(node, 300), narrow = W < 560;
   const st = meta.stations, n = st.length, norm = meta.c.norm;
   const rowH = narrow ? 30 : 32, top = 18, H = top * 2 + rowH * (n - 1);
   const xNum = narrow ? 40 : 64, xLine = narrow ? 58 : 92, xName = xLine + 22;
   const xBar = narrow ? xName + 118 : xName + 170, barW = Math.max(60, W - xBar - (narrow ? 44 : 70));
   const y = i => top + (n - 1 - i) * rowH;           // i = 0 — Пр. Ветеранов (низ)
-
-  // загрузка перегонов к центру: составы, которые проходят критический перегон в момент timeMin
-  const { north, south } = criticalLoads(timeMin, entriesAt, pairs, meta);
-  const seg = d3.range(n - 1).map(k => k >= 10 ? north[k] : k <= 4 ? south[k] : null);
-
-  // вход за последний час до момента и обычный вход
-  const s1 = Math.min(95, Math.floor(timeMin / 15));
-  const hour = i => d3.sum(d3.range(Math.max(0, s1 - 3), s1 + 1), s => entriesAt(s)[i]);
-  const usual = i => d3.sum(d3.range(Math.max(0, s1 - 3), s1 + 1), s => base[s][i]);
-  const ent = d3.range(n).map(i => ({ x: hour(i), b: usual(i) }));
   const bx = d3.scaleLinear().domain([0, Math.max(2500, d3.max(ent, e => Math.max(e.x, e.b)))]).range([0, barW]);
 
   const svg = d3.select(node).html("").append("svg").attr("width", W).attr("height", H).attr("class", "linemap")

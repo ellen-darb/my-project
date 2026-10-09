@@ -24,7 +24,7 @@ let cleanup = null, current = null;
 async function route() {
   const [name, q] = (location.hash.slice(1) || "pult").split("?");
   const tab = TABS[name] ? name : "pult";
-  if (tab === current && name === "pult" && cleanup) return;    // смена параметров внутри пульта
+  if (tab === current && name === "pult" && cleanup) { (await TABS.pult()).applyParams(new URLSearchParams(q || "")); return; }   // смена параметров внутри пульта
   current = tab;
   if (cleanup) { cleanup(); cleanup = null; }
   document.querySelectorAll("#tabs a").forEach(a => a.classList.toggle("on", a.getAttribute("href") === `#${tab}`));
