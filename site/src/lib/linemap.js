@@ -19,6 +19,7 @@ export function drawLineMap(node, { meta, seg, ent, valid = true }) {
   const svg = d3.select(node).html("").append("svg").attr("width", W).attr("height", H).attr("class", "linemap")
     .attr("role", "img").attr("aria-label", "Схема линии 1: загрузка составов к центру и вход по станциям");
 
+  svg.append("text").attr("class", "lm-colh").attr("x", xNum).attr("y", 10).attr("text-anchor", "end").text("человек");
   // зоны: север и юг — к центру, центр — пересадки
   const zone = (a, b, label, sub, fill) => {
     const g = svg.append("g");
@@ -29,7 +30,7 @@ export function drawLineMap(node, { meta, seg, ent, valid = true }) {
   };
   zone(11, 18, "север ↓ к центру", "", "var(--band)");
   zone(0, 4, "юг ↑ к центру", "", "var(--band)");
-  zone(5, 10, "центр: не видно", "", "transparent");
+  zone(5, 10, "центр: нет данных", "", "transparent");
 
   // линия: центр — тонкая и серая (загрузку по турникетам не оценить), сектора — по загрузке
   const segs = svg.append("g");
@@ -63,7 +64,7 @@ export function drawLineMap(node, { meta, seg, ent, valid = true }) {
   sg.append("line").attr("x1", (d, i) => xBar + bx(ent[i].b)).attr("x2", (d, i) => xBar + bx(ent[i].b)).attr("y1", -9).attr("y2", 9)
     .attr("stroke", "var(--ink)").attr("stroke-width", 2);
   sg.append("text").attr("class", (d, i) => "lm-dev" + (ent[i].b >= 50 && ent[i].x / ent[i].b > 1.08 ? " up" : ent[i].b >= 50 && ent[i].x / ent[i].b < 0.92 ? " dn" : "")).attr("x", W - 2).attr("y", 4.5).attr("text-anchor", "end")
-    .text((d, i) => ent[i].b < 50 ? "" : sgnPct(ent[i].x / ent[i].b - 1));
+    .text((d, i) => { if (ent[i].b < 50) return ""; const v = Math.round((ent[i].x / ent[i].b - 1) * 100); return v === 0 ? "0%" : (v > 0 ? "+" : "−") + Math.abs(v) + "%"; });
   sg.append("rect").attr("x", 0).attr("y", -rowH / 2).attr("width", W).attr("height", rowH).attr("fill", "transparent")
     .on("mousemove", (ev, d) => { const i = st.indexOf(d); tipShow(ev, `<b>${d}</b><br>вошло за час: <b>${fmt(ent[i].x)}</b><br>обычно: ${fmt(ent[i].b)}`); })
     .on("mouseleave", tipHide);
@@ -75,6 +76,6 @@ const lowRamp = d3.piecewise(d3.interpolateRgb, ["#ECE6DF", "#F3C6B8", "#EE8E8E"
 export const mapColor = (L, norm = 960) => L <= norm
   ? lowRamp(Math.max(0, L) / norm)
   : d3.interpolateRgb("#C8063A", "#5E001C")(Math.min(1, (L - norm) / (1458 - norm)));
-const devColor = r => r > 0.08 ? "var(--red)" : r < -0.08 ? "var(--blue)" : "var(--unknown)";
+const devColor = r => r > 0.08 ? "var(--amber)" : r < -0.08 ? "var(--blue)" : "var(--unknown)";
 const SHORT = { "Технологический ин-т": "Технол. ин-т", "Гражданский пр.": "Гражданский", "Политехническая": "Политехнич.", "Кировский завод": "Кировский з-д", "Академическая": "Академич.", "Пл. Восстания": "Пл. Восстания", "Чернышевская": "Чернышевская", "Владимирская": "Владимирская", "Пр. Ветеранов": "Пр. Ветеранов" };
 const short = s => SHORT[s] || s;

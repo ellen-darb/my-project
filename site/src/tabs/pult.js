@@ -10,12 +10,12 @@ import { runDay, applyMeasures, sectorLoad, segmentLoad, ACTIONABLE, FIRST, LAST
 
 /* Примеры дней открываются на слотах, где есть что показать. */
 const PRESETS = [
-  { d: "2026-09-15", t: 28, label: "Не снимать составы", note: "15.09 · 08:00, график убирает составы в пик" },
-  { d: "2026-02-26", t: 24, label: "Выпустить из резерва", note: "26.02 · 06:00, зимний пик" },
-  { d: "2026-02-03", t: 29, label: "Резерв успеет не ко всему", note: "03.02 · 08:15, тесно через 30 минут" },
-  { d: "2026-05-08", t: 25, label: "Добавить нельзя", note: "08.05 · 07:00, линия на пределе" },
-  { d: "2026-07-21", t: 47, label: "Можно снять", note: "21.07 · 11:45, летом поток ниже" },
-  { d: "2026-09-12", t: 52, label: "Людей больше, места хватает", note: "12.09 · 13:15, суббота +24%" },
+  { d: "2026-09-15", t: 28, label: "Не снимать составы", note: "15.09, график убирает составы в пик" },
+  { d: "2026-02-26", t: 24, label: "Выпустить из резерва", note: "26.02, зимний пик" },
+  { d: "2026-02-03", t: 29, label: "Резерв успеет не ко всему", note: "03.02, тесно через 15 минут" },
+  { d: "2026-05-08", t: 25, label: "Добавить нельзя", note: "08.05, линия на пределе" },
+  { d: "2026-07-21", t: 47, label: "Можно снять", note: "21.07, летом поток ниже" },
+  { d: "2026-09-12", t: 52, label: "Людей больше, места хватает", note: "12.09, суббота +24%" },
 ];
 
 /* Один источник статуса: решение движка на момент t и запись диспетчера. Цвет — только для отклонений (ISA-101). */
@@ -45,7 +45,7 @@ const SECT = { north: "С севера в центр", south: "С юга в це
 const WX = [[0, "ясно"], [3, "облачно"], [48, "туман"], [57, "морось"], [67, "дождь"], [77, "снег"], [82, "ливень"], [86, "снегопад"], [99, "гроза"]];
 const wxText = c => WX.find(([m]) => c <= m)?.[1] || "";
 
-let state = { d: "2026-09-15", t: 28, off: 0, alpha: null, auto: true, timer: null, ui: null, toast: null, redraw: null };
+let state = { d: "2026-09-15", t: 28, off: 0, alpha: null, auto: false, timer: null, ui: null, toast: null, redraw: null };
 
 export function applyParams(params) {
   const d = params.get("d") || state.d, t = params.get("t") != null ? +params.get("t") : state.t;
@@ -60,7 +60,7 @@ export async function render(app, params) {
   const [meta, days, fcst] = await Promise.all([load("meta.json"), load("days.json"), load("forecast.json")]);
   if (state.alpha == null) state.alpha = meta.c.alpha;
   if (!days.some(x => x.d === state.d)) state.d = "2026-09-15";
-  app.innerHTML = `
+  app.innerHTML = `<div class="pu-flow">
   <section class="pu-head">
     <div class="pu-day">
       <p class="kicker" id="p-sched"></p>
@@ -80,12 +80,12 @@ export async function render(app, params) {
     </div>
     <div class="pu-railbox">
       <div class="rail" id="p-rail" role="slider" tabindex="0" aria-label="Время дня, стрелки влево и вправо"></div>
-      <div class="rail-key"><span><i style="background:var(--green)"></i>составов хватает</span><span><i style="background:var(--amber)"></i>скоро тесно</span><span><i style="background:var(--red)"></i>нужна мера</span><span><i style="background:var(--blue)"></i>можно убрать</span>
-        <span class="rail-mode"><span class="seg" id="p-auto" role="group" aria-label="Как считать прошлые советы"><button data-a="1" title="Прошлые советы считаются принятыми, пока вы не откажетесь: день читается как рабочая смена">Показ</button><button data-a="0" title="Считаются только советы, которые вы приняли сами">Рабочий</button></span><span id="p-auto-note"></span></span></div>
+      <div class="rail-key"><span><i style="background:var(--green)"></i>составов хватает</span><span><i style="background:var(--amber)"></i>скоро тесно</span><span><i style="background:var(--red)"></i>нужна мера</span><span><i style="background:var(--blue)"></i>можно убрать</span></div>
     </div>
   </section>
   <section class="pu-grid">
     <div class="pu-main">
+      <div class="demo-row"><span class="seg" id="p-auto" role="group" aria-label="Как считать прошлые советы"><button data-a="1" title="Прошлые советы считаются принятыми, пока вы не откажетесь">Показ</button><button data-a="0" title="Считаются только советы, которые вы приняли сами">Рабочий</button></span><span id="p-auto-note"></span></div>
       <div class="statebar" id="p-state"></div>
       <div id="p-dec"></div>
     </div>
@@ -136,7 +136,7 @@ export async function render(app, params) {
     <h3>Примеры дней</h3>
     <div class="presets" id="p-presets"></div>
     <button class="btn" id="p-csv" hidden style="margin-top:18px">Скачать советы за день, CSV</button>
-  </section>`;
+  </section></div>`;
 
   d3.select("#p-scale").selectAll("span").data(d3.range(0, 1459, 40)).join("span").style("flex", 1).style("background", v => mapColor(v));
   const $ = id => document.getElementById(id);
@@ -151,7 +151,7 @@ export async function render(app, params) {
   const pr = $("p-presets");
   for (const p of PRESETS) {
     const b = document.createElement("button"); b.className = "preset";
-    b.innerHTML = `<b>${p.label}</b><span>${p.note}</span>`;
+    b.innerHTML = `<b>${p.label}</b><span>${p.note}, на часах ${slotStr(p.t + 1)}</span>`;
     b.onclick = () => { state.d = p.d; state.t = p.t; state.ui = null; state.off = 0; draw(true); window.scrollTo({ top: 0, behavior: "smooth" }); };
     pr.appendChild(b);
   }
@@ -182,6 +182,7 @@ export async function render(app, params) {
     if (newDay || !day || day.date !== state.d) {
       day = await load(`day/${state.d}.json`);
       rail.dataset.d = "";
+      clearTimeout(state.toast); document.querySelector(".toast")?.remove();
     }
     const t = state.t, alpha = state.alpha;
     sel.value = state.d;
@@ -191,7 +192,7 @@ export async function render(app, params) {
     $("p-clock").textContent = slotStr(t + 1);
     $("p-chips").innerHTML = chips(day, days.find(x => x.d === state.d), t);
     document.querySelectorAll("#p-auto button").forEach(b => b.classList.toggle("on", (b.dataset.a === "1") === state.auto));
-    $("p-auto-note").textContent = state.auto ? "прошлые советы считаются принятыми, пока вы не откажетесь" : "считаются только принятые вами";
+    $("p-auto-note").textContent = state.auto ? "демо: прошлые советы считаются принятыми, пока вы не откажетесь" : "рабочий режим: считаются только принятые вами советы";
     document.querySelectorAll("#p-alpha button").forEach(b => b.classList.toggle("on", +b.dataset.a === alpha));
 
     const jr = getDay(day.date);
@@ -291,7 +292,10 @@ function analyse(meta, day, t, alpha, journal, auto, fcst) {
       for (let k = w.from; k <= w.to; k++) { const n = P[k] / 4; tot += n; over += n * Math.max(0, L[k] - meta.c.norm); peak = Math.max(peak, L[k]); }
       return { over, tot, peak };
     };
-    eff = { before: stat(Pbefore), after: stat(Ppreview), sec };
+    const Lb = sectorLoad(meta, E, Pbefore, sec, alpha), La = sectorLoad(meta, E, Ppreview, sec, alpha);
+    let best = null;
+    for (let k = w.from; k <= w.to; k++) if (!best || Lb[k] - La[k] > best.d) best = { k, d: Lb[k] - La[k], b: Lb[k], a: La[k] };
+    eff = { before: stat(Pbefore), after: stat(Ppreview), sec, best };
   }
   return { dc, E, run, Pbefore, Ppreview, Pshow, plan, entry, accepted, act, pts, rail, fullP, eff, t, loadBefore, loadPrev };
 }
@@ -374,7 +378,7 @@ function renderState(node, view, meta) {
     const peak = lv.k === "done" || lv.k === "doneTight" ? Math.round(view.eff.after.peak) : w.peak;
     sub = `${SECT[w.sector]}: ${when}, с ${slotStr(w.from)} до ${slotStr(w.to + 1)}, до ${fmt(peak)} человек в составе при норме ${fmt(meta.c.norm)}`;
   } else if (lv.k === "watch") sub = dc.window.peak ? `в составах пока есть место: до ${fmt(dc.window.peak)} человек при норме ${fmt(meta.c.norm)}` : "загрузку составов по входам оценить нельзя, ориентируйтесь на доклады станций";
-  else if (lv.k === "low") sub = "поток ниже обычного, составы будут заполнены меньше чем на 70%";
+  else if (lv.k === "low") sub = "поток ниже обычного; вне утреннего пика наполненность составов не оцениваем";
   else if (lv.k === "na") sub = "поток в пределах обычного; вне утреннего пика нужны выходы по станциям, их в данных нет";
   else sub = peakText(view, meta);
   node.innerHTML = `<div class="sb-ic" aria-hidden="true">${svgIc(L.ic)}</div>
@@ -407,13 +411,13 @@ function renderDecision(node, view, day, meta, ctx) {
   let gain = "";
   const alphaRange = w => { const a = state.alpha, lo = Math.round(w * 0.75 / a), hi = Math.round(w * 1 / a); return lo === hi ? "" : ` · при другой доле едущих к центру: ${fmt(lo)}–${fmt(hi)}`; };
   if (eff) {
-    const b = eff.before, a = eff.after;
+    const b = { ...eff.before, best: eff.best }, a = eff.after;
     if (hasAct) {
       const small = a.over > b.over * 0.97 && a.peak > b.peak - 15;
       gain = `<div class="gain${small ? " gain-small" : ""}"><p class="gain-k">${entry?.act === "accept" ? "С принятой мерой" : "Если выполнить совет"}, с ${slotStr(dc.window.from)} до ${slotStr(dc.window.to + 1)}</p>
         <div class="gain-row"><div><span class="num">${fmt(b.over)}</span><i>→</i><b class="num">${fmt(a.over)}</b><small>человек едут сверх нормы, всего по составам</small></div>
         <div><span class="num">${fmt(b.peak)}</span><i>→</i><b class="num">${fmt(a.peak)}</b><small>человек в самом полном составе</small></div></div>
-        <p class="gain-n">${small ? "Мера почти не меняет картину: одного состава в пик мало. " : ""}Расчёт при допущении, что к центру едут ${Math.round(state.alpha * 100)}% входящих${alphaRange(b.peak)}</p></div>`;
+        <p class="gain-n">${b.best && b.best.d > 20 ? `Сильнее всего мера помогает в ${slotStr(b.best.k)}–${slotStr(b.best.k + 1)}: ${fmt(b.best.b)} → ${fmt(b.best.a)} человек в составе. ` : small ? "Мера почти не меняет картину: одного состава в пик мало. " : ""}Расчёт при допущении, что к центру едут ${Math.round(state.alpha * 100)}% входящих${alphaRange(b.peak)}</p></div>`;
     } else if (b.over > 1) {
       gain = `<div class="gain gain-none"><p class="gain-k">Если ничего не менять, с ${slotStr(dc.window.from)} до ${slotStr(dc.window.to + 1)}</p>
         <div class="gain-row"><div><b class="num">${fmt(b.over)}</b><small>человек едут сверх нормы, всего по составам</small></div>
@@ -464,7 +468,7 @@ function renderDecision(node, view, day, meta, ctx) {
   q("p-yes") && (q("p-yes").onclick = () => {
     setEntry(day.date, t, { act: "accept", crew: needCrew, m: texts });
     state.ui = null; ctx.redraw();
-    toast("Принято. Решение записано, расчёт обновлён.", () => { clearEntry(day.date, t); ctx.redraw(); });
+    toast(`Принято. Проверим в ${slotStr(t + 3)}.`, () => { clearEntry(day.date, t); ctx.redraw(); });
   });
   q("p-snooze") && (q("p-snooze").onclick = () => { setEntry(day.date, t, { act: "snooze", m: texts }); state.ui = null; ctx.redraw(); });
   node.querySelectorAll("[data-r]").forEach(b => b.onclick = () => {

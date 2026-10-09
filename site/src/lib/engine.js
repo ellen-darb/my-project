@@ -94,26 +94,31 @@ export function decide(meta, pairs, weekend, E, Bd, t, lineRatio, plan, alpha) {
   const hour = Math.floor((t + 1) * 15 / 60);
 
   if (!worst) {
+    const peak = nMorn ? maxOf(["north", "south"].map(s => maxOf(out.sectors[s].fc.slice(0, nMorn)))) : 0;
     if (rel === "high") {
-      const peak = nMorn ? maxOf(["north", "south"].map(s => maxOf(out.sectors[s].fc.slice(0, nMorn)))) : 0;
       out.status = "watch";
       out.window = { sector: "line", from: win[0], to: win[win.length - 1], lead_min: 15, peak: Math.round(peak) };
       out.measures.push({ type: "watch",
         text: nMorn ? `Составы не добавлять: к центру до ${Math.round(peak)} чел. в составе (${Math.round(peak / NORM * 100)}% нормы)`
           : "Людей больше обычного, загрузку составов по входам оценить нельзя",
-        why: "поток выше обычного, но там, где загрузку можно оценить, место есть; по центру и вечером — доклады дежурных станций" });
+        why: nMorn ? "поток выше обычного, но там, где загрузку можно оценить, место есть; по центру и вечером — доклады дежурных станций"
+          : "поток выше обычного; вне утреннего пика нужны выходы по станциям, по входам загрузку не оцениваем" });
+    } else if (nMorn && peak > NORM) {
+      out.status = "watch";
+      out.window = { sector: "line", from: win[0], to: win[win.length - 1], lead_min: 15, peak: Math.round(peak) };
+      out.measures.push({ type: "watch", text: `Меры не нужны: короткое превышение нормы, до ${Math.round(peak)} чел. в составе`,
+        why: "выше нормы меньше двух четвертей часа подряд; следите за докладами станций" });
     } else if (rel === "low" && hour >= en.cut_hours[0] && hour < en.cut_hours[1]) {
-      const Lmax = maxOf(["north", "south"].map(s => maxOf(out.sectors[s].fc)));
       const pNow = pairs[t + 1];
       const floor = (weekend ? en.min_pairs.weekend : en.min_pairs.weekday)[hour];
       const target = Math.max(Math.ceil(floor), Math.ceil(pNow * lineRatio / 0.95));
       const cut = Math.trunc(pNow - target);
-      if (cut >= 2 && Lmax < 0.7 * NORM) {
+      if (cut >= 2) {
         const tr = Math.floor(cut * c.turnover / 60);
         out.status = "low";
         out.measures.push({ type: "cut", pairs: cut, trains: tr, from: t + 1, to: win[win.length - 1],
           text: `Снять ${tr} сост. в депо, −${cut} пар/ч`,
-          why: `поток ${Math.round((lineRatio - 1) * 100)}% к обычному дню; загрузка остаётся ниже 70% нормы, интервал в пределах графика` });
+          why: `людей на ${Math.abs(Math.round((lineRatio - 1) * 100))}% меньше обычного; после снятия интервал не больше допустимого по графику. Наполненность составов днём по входам не оцениваем` });
       }
     }
     return out;
@@ -131,7 +136,7 @@ export function decide(meta, pairs, weekend, E, Bd, t, lineRatio, plan, alpha) {
   out.window = { sector: sec, from: s0, to: s1, lead_min: lead, pairs: pS0, trains: trainsOnLine(pS0), need_pairs: need, peak: Math.round(mult * NORM) };
   if (Math.min(...pairs.slice(s0, s1 + 1)) < pNow) {
     out.measures.push({ type: "hold", pairs: pNow, from: t + 1, to: s1,
-      text: `Не снимать составы до ${tStr(s1 + 1)}: держать ${pNow} пар/ч`,
+      text: `${pairs[t] > plan[t] ? "Продлить удержание составов" : "Не снимать составы"} до ${tStr(s1 + 1)}: держать ${pNow} пар/ч`,
       why: "по графику парность снижается, а поток ещё выше нормы; составы уже на линии, ввод не нужен" });
     pS0 = Math.max(pS0, pNow);
   }
@@ -156,8 +161,9 @@ export function decide(meta, pairs, weekend, E, Bd, t, lineRatio, plan, alpha) {
       why: lead >= c.hot_lead ? `резерв выходит за 15–20 мин и успевает; начало с ${tStr(start)}`
         : `тесно станет через ${lead} мин: резерв успеет к ${tStr(start)}, дальше окно ещё идёт` });
   } else if (!out.measures.length || headroom <= 0 || free <= 0) {
-    out.measures.push({ type: "limit", text: "Составы не добавить: линия на пределе пропускной способности",
-      why: "предупредить станции сектора и подготовить регулирование входа на самых загруженных вестибюлях" });
+    const whyLim = headroom <= 0 ? `к ${tStr(s0)} интервал уже предельный 1:53` : `к ${tStr(s0)} на линии уже ${trainsOnLine(pS0)} из ${c.max_trains} составов`;
+    out.measures.push({ type: "limit", text: `Добавить состав нельзя: ${whyLim}`,
+      why: "Предупредите станции участка: может понадобиться ограничить вход на самых загруженных" });
   }
   return out;
 }

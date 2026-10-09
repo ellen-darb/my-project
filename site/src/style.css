@@ -425,3 +425,14 @@ details.chk > summary { font-size: 13.5px; font-weight: 600; color: var(--ink-2)
 .rep-note { margin: 0 0 6px; padding: 0 0 12px; font-size: 13.5px; color: var(--ink-3); max-width: none; border-bottom: 1px solid var(--rule); }
 
 @media (max-width: 640px) { .tabs a { padding: 18px 9px 16px; } .top { gap: 8px; } .theme { padding: 6px; } }
+
+.demo-row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; margin-top: 8px; font-size: 13px; color: var(--ink-3); }
+.lm-colh { font-size: 11px; fill: var(--ink-3); }
+.pu-flow { display: flex; flex-direction: column; }
+button, .seg button, .tabs a, select { min-height: 36px; }
+button:focus-visible, a:focus-visible, select:focus-visible, input:focus-visible { outline: 3px solid var(--blue); outline-offset: 2px; }
+@media (max-width: 640px) {
+  button, .seg button, select, .preset { min-height: 44px; }
+  .review-table, .plan-table { min-width: 0; }
+  html, body { overflow-x: hidden; }
+}

@@ -87,26 +87,32 @@ def decide(pairs, weekend, E, Bd, t, line_ratio, plan=None, alpha=line.ALPHA):
     hour = int(data.SLOTS[t + 1] // 60)
 
     if worst is None:
+        n_m = len(mwin)
+        peak = max([max(v["fc"][:n_m] or [0]) for v in out["sectors"].values()])
         if rel == "high":
-            peak = max([max(v["fc"][:len(mwin)] or [0]) for v in out["sectors"].values()])
             out["status"] = "watch"
             out["window"] = {"sector": "line", "from": int(win[0]), "to": int(win[-1]), "lead_min": 15, "peak": int(round(peak))}
-            txt = (f"Составы не добавлять: к центру до {peak:.0f} чел. в составе ({peak / NORM:.0%} нормы)" if len(mwin) else
+            txt = (f"Составы не добавлять: к центру до {peak:.0f} чел. в составе ({peak / NORM:.0%} нормы)" if n_m else
                    "Людей больше обычного, загрузку составов по входам оценить нельзя")
             out["measures"].append({"type": "watch", "text": txt,
-                "why": "поток выше обычного, но там, где загрузку можно оценить, место есть; по центру и вечером — доклады дежурных станций"})
+                "why": ("поток выше обычного, но там, где загрузку можно оценить, место есть; по центру и вечером — доклады дежурных станций" if n_m
+                        else "поток выше обычного; вне утреннего пика нужны выходы по станциям, по входам загрузку не оцениваем")})
+        elif n_m and peak > NORM:
+            out["status"] = "watch"
+            out["window"] = {"sector": "line", "from": int(win[0]), "to": int(win[-1]), "lead_min": 15, "peak": int(round(peak))}
+            out["measures"].append({"type": "watch", "text": f"Меры не нужны: короткое превышение нормы, до {peak:.0f} чел. в составе",
+                "why": "выше нормы меньше двух четвертей часа подряд; следите за докладами станций"})
         elif rel == "low" and CUT_HOURS[0] <= hour < CUT_HOURS[1]:
-            Lmax = max(max(v["fc"]) for v in out["sectors"].values())
             p_now = float(pairs[t + 1])
             floor = line.min_pairs(hour, weekend)
             target = max(math.ceil(floor), math.ceil(p_now * line_ratio / 0.95))
             cut = int(p_now - target)
-            if cut >= 2 and Lmax < 0.7 * NORM:
+            if cut >= 2:
                 tr = math.floor(cut * line.TURNOVER_MIN / 60)
                 out["status"] = "low"
                 out["measures"].append({"type": "cut", "pairs": cut, "trains": tr, "from": int(t + 1), "to": int(win[-1]),
                     "text": f"Снять {tr} сост. в депо, −{cut} пар/ч",
-                    "why": f"поток {round((line_ratio - 1) * 100)}% к обычному дню; загрузка остаётся ниже 70% нормы, интервал в пределах графика"})
+                    "why": f"людей на {abs(round((line_ratio - 1) * 100))}% меньше обычного; после снятия интервал не больше допустимого по графику. Наполненность составов днём по входам не оцениваем"})
         return out
 
     _, sec, over, anomal, Lf = worst
@@ -121,8 +127,9 @@ def decide(pairs, weekend, E, Bd, t, line_ratio, plan=None, alpha=line.ALPHA):
                      "trains": int(trains_on_line(p_s0)), "need_pairs": need, "peak": round(mult * NORM)}
     # 1) не снимать составы, если график снижает парность внутри окна перегрузки
     if pairs[s0:s1 + 1].min() < p_now:
+        ext = pairs[t] > plan[t]
         out["measures"].append({"type": "hold", "pairs": p_now, "from": int(t + 1), "to": s1,
-            "text": f"Не снимать составы до {t_str(s1 + 1)}: держать {p_now:.0f} пар/ч",
+            "text": f"{'Продлить удержание составов' if ext else 'Не снимать составы'} до {t_str(s1 + 1)}: держать {p_now:.0f} пар/ч",
             "why": "по графику парность снижается, а поток ещё выше нормы; составы уже на линии, ввод не нужен"})
         p_s0 = max(p_s0, p_now)
     # 2) выпуск: первый слот, с которого состав реально выйдет на линию (резерв 20 мин)
@@ -154,7 +161,8 @@ def decide(pairs, weekend, E, Bd, t, line_ratio, plan=None, alpha=line.ALPHA):
                                 "hot": min(tr, HOT), "on_time": lead >= line.HOT_LEAD_MIN, "early": bool(early),
                                 "text": text, "why": why})
     elif not out["measures"] or headroom <= 0 or free <= 0:
+        why_lim = (f"к {t_str(s0)} интервал уже предельный 1:53" if headroom <= 0 else f"к {t_str(s0)} на линии уже {int(trains_on_line(p_s0))} из {line.MAX_TRAINS} составов")
         out["measures"].append({"type": "limit",
-            "text": "Составы не добавить: линия на пределе пропускной способности",
-            "why": "предупредить станции сектора и подготовить регулирование входа на самых загруженных вестибюлях"})
+            "text": f"Добавить состав нельзя: {why_lim}",
+            "why": "Предупредите станции участка: может понадобиться ограничить вход на самых загруженных"})
     return out

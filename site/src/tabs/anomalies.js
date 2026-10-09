@@ -51,7 +51,7 @@ export async function render(app, params) {
     const X = hourly.x[j], B = hourly.b[j];
     const node = document.getElementById("an-day");
     node.innerHTML = `
-      <div class="sec-head"><div><p class="kicker">${weekdayS(sel)} · ${c.planned ? "плановый день" : c.kinds.length ? "аномалия" : "обычный день"}</p><h2>${dayLong(sel)}: ${sgnPct(c.dev)} к обычному</h2></div>
+      <div class="sec-head"><div><p class="kicker">${weekdayS(sel)} · ${c.planned ? "плановый день" : c.incident?.length ? "сбой данных или закрытый вход" : c.kinds.includes("surge") ? "поток выше обычного" : c.kinds.includes("drop") ? "поток ниже обычного" : c.kinds.length ? "аномалия" : "обычный день"}</p><h2>${dayLong(sel)}: ${sgnPct(c.dev)} к обычному</h2></div>
       <p>${describe(c)}</p></div>
       ${taktBox(days.find(x => x.d === sel))}
       <div class="chart-title"><h3>Вход по станциям и часам к обычному дню</h3><span class="note">станции с юга (внизу) на север (вверху), как на схеме · <i class="sw" style="background:#2F5DA8"></i> на 60% ниже обычного … <i class="sw" style="background:#ECE9E2"></i> как обычно … <i class="sw" style="background:#D6083B"></i> на 60% выше</span></div>
