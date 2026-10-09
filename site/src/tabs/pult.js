@@ -3,6 +3,9 @@ import { load, fmt, sgnPct, hhmm, slotStr, dayLong, weekday, weekdayS, parseDay,
   forecastEntries, tipShow, tipHide, loadColor, dec } from "../lib/util.js";
 import { drawMarey } from "../lib/marey.js";
 import { drawLineMap, mapColor } from "../lib/linemap.js";
+import { computeCorridor, overloadIn, drawCorridor, STEP } from "../lib/corridor.js";
+import { plain, pl } from "../lib/plain.js";
+import { getEntry, setEntry, clearEntry, REASONS, ACT } from "../lib/journal.js";
 import { sectorChart, pairsChart } from "../lib/charts.js";
 
 const PRESETS = [
@@ -23,7 +26,7 @@ const ICON = { hold: "=", add: "+", cut: "−", limit: "!", watch: "i" };
 const SECT = { north: "С севера в центр", south: "С юга в центр", line: "Вся линия" };
 const GROUP = { "mon-thu": "будний день", fri: "пятница", sat: "суббота", sun: "воскресенье или праздник" };
 
-let state = { d: "2026-09-15", t: 28, mode: "sys", off: 0, timer: null };
+let state = { d: "2026-09-15", t: 28, mode: "sys", off: 0, timer: null, ui: null, showAll: false, toast: null };
 
 export async function render(app, params) {
   if (params.get("d")) state.d = params.get("d");
@@ -44,13 +47,17 @@ export async function render(app, params) {
     <div><div class="rail" id="p-rail"></div>
     <div class="rail-key"><span><i style="background:var(--green)"></i>поездов хватает</span><span><i style="background:var(--amber)"></i>тесно по графику</span><span><i style="background:var(--red)"></i>людей больше обычного</span><span><i style="background:var(--blue)"></i>можно убрать поезда</span></div></div>
   </div>
+  <div class="statebar" id="p-state"></div>
   <div class="pult-grid">
     <div class="left">
       <div class="chart-title">
         <h3 id="p-map-t">Линия 1 сейчас</h3>
         <div class="seg" id="p-mode"><button data-m="plan">Как по графику</button><button data-m="sys">Если выполнить совет</button></div>
       </div>
-      <div class="seg" id="p-off" style="margin-bottom:12px">${[0, 30, 60, 90, 120].map(o => `<button data-o="${o}">${o ? `+${o}<span class="u"> мин</span>` : "Сейчас"}</button>`).join("")}</div>
+      <div class="corridor-head"><h3>Какой будет загрузка в ближайшие 2 часа</h3>
+        <span class="legend"><span><i style="background:var(--ink)"></i>по графику</span><span><i class="dash" style="color:var(--blue)"></i>если выполнить совет</span><span><i style="background:var(--band);border:1px solid var(--rule)"></i>разброс прогноза</span></span></div>
+      <div class="corridor" id="p-cor"></div>
+      <div class="timeslider"><input type="range" id="p-slide" min="0" max="120" step="${STEP}" value="0" aria-label="На сколько минут вперёд показать линию"><output id="p-slide-o">сейчас</output></div>
       <div class="lm-legend">
         <span class="lm-k"><b>Линия</b> — сколько людей в поезде, который едет в центр</span>
         <span class="lm-scale"><span>свободно</span><span class="scale" id="p-scale"></span><span>битком</span></span>
@@ -91,7 +98,7 @@ export async function render(app, params) {
   const sel = document.getElementById("p-date");
   sel.innerHTML = [...d3.group(days, d => parseDay(d.d).getMonth() + 1)].map(([m, list]) =>
     `<optgroup label="${monthName(m)}">${list.map(d => `<option value="${d.d}">${dayLong(d.d)}, ${weekdayS(d.d)}</option>`).join("")}</optgroup>`).join("");
-  sel.onchange = () => { state.d = sel.value; draw(true); };
+  sel.onchange = () => { state.d = sel.value; state.ui = null; draw(true); };
   const hx = document.getElementById("p-hint-x");
   if (hx) hx.onclick = () => { document.getElementById("p-hint").remove(); try { localStorage.setItem("takt-hint", "1"); } catch (e) { /* без хранилища */ } };
   // выгрузка рекомендаций дня: только там, где страница может предложить файл
@@ -115,23 +122,24 @@ export async function render(app, params) {
   const pr = document.getElementById("p-presets");
   for (const p of PRESETS) {
     const b = document.createElement("button"); b.className = "btn"; b.textContent = p.label;
-    b.onclick = () => { state.d = p.d; state.t = p.t; draw(true); };
+    b.onclick = () => { state.d = p.d; state.t = p.t; state.ui = null; draw(true); };
     pr.appendChild(b);
   }
 
-  document.getElementById("p-back").onclick = () => { state.t = Math.max(24, state.t - 1); draw(false); };
-  document.getElementById("p-fwd").onclick = () => { state.t = Math.min(87, state.t + 1); draw(false); };
+  document.getElementById("p-back").onclick = () => { state.t = Math.max(24, state.t - 1); state.ui = null; draw(false); };
+  document.getElementById("p-fwd").onclick = () => { state.t = Math.min(87, state.t + 1); state.ui = null; draw(false); };
   const play = document.getElementById("p-play");
   play.onclick = () => {
     if (state.timer) { stop(); return; }
     play.textContent = "❚❚ Пауза";
     state.timer = setInterval(() => {
       if (state.t >= 87) { stop(); return; }
-      state.t++; draw(false);
+      state.t++; state.ui = null; draw(false);
     }, 900);
   };
   function stop() { clearInterval(state.timer); state.timer = null; play.textContent = "▶ Проиграть день"; }
-  document.querySelectorAll("#p-off button").forEach(b => b.onclick = () => { state.off = +b.dataset.o; draw(false); });
+  const slide = document.getElementById("p-slide");
+  slide.oninput = () => { state.off = +slide.value; draw(false); };
   document.querySelectorAll("#p-mode button").forEach(b => b.onclick = () => { state.mode = b.dataset.m; draw(false); });
 
   let day = null;
@@ -144,7 +152,7 @@ export async function render(app, params) {
     }
     const t = state.t;
     sel.value = state.d;
-    drawRail(document.getElementById("p-rail"), day, t, tt => { state.t = tt; draw(false); });
+    drawRail(document.getElementById("p-rail"), day, t, tt => { state.t = tt; state.ui = null; draw(false); });
     history.replaceState(null, "", `#pult?d=${state.d}&t=${t}`);
     document.getElementById("p-clock").textContent = slotStr(t + 1);
     document.querySelectorAll("#p-mode button").forEach(b => b.classList.toggle("on", b.dataset.m === state.mode));
@@ -152,13 +160,19 @@ export async function render(app, params) {
     const pairs = state.mode === "sys" ? day.sys : day.plan;
     const E = forecastEntries(day.x, day.b, t, meta.w_ratio);
     const entriesAt = s => (s <= t ? day.x[s] : E[s]);
-    const off = state.off || 0, tm = (t + 1) * 15 + off;
-    document.querySelectorAll("#p-off button").forEach(b => b.classList.toggle("on", +b.dataset.o === off));
+    const off = state.off || 0, nowMin = (t + 1) * 15, tm = nowMin + off;
+    const slideEl = document.getElementById("p-slide");
+    slideEl.value = off;
+    document.getElementById("p-slide-o").textContent = off ? `${hhmm(tm)} (+${off} мин)` : "сейчас";
     document.getElementById("p-map-t").innerHTML = off ? `Линия 1 в ${hhmm(tm)} <span class="lm-fc">прогноз</span>` : `Линия 1 сейчас, ${hhmm(tm)}`;
     drawLineMap(document.getElementById("p-map"), { meta, timeMin: tm, pairs, entriesAt, base: day.b });
 
     const dc = day.dec[t - 24];
-    renderDecision(document.getElementById("p-dec"), dc, day, meta, t);
+    const pts = computeCorridor({ tm0: nowMin, entriesAt, planPairs: day.plan, sysPairs: day.sys, meta, q: fcst.q });
+    drawCorridor(document.getElementById("p-cor"), { pts, off, norm: meta.c.norm, nowMin, onPick: o => { state.off = o; draw(false); } });
+    const ov = overloadIn(pts, meta.c.norm);
+    renderState(document.getElementById("p-state"), dc, ov, pts, nowMin, meta);
+    renderDecision(document.getElementById("p-dec"), dc, day, meta, t, { ov, pts, nowMin, redraw: () => draw(false) });
 
     if (!document.getElementById("p-more").open) return;
     drawMarey(document.getElementById("p-marey"), { day, meta, nowMin: (t + 1) * 15, pairs, entriesAt,
@@ -173,7 +187,7 @@ export async function render(app, params) {
   }
   document.getElementById("p-more").addEventListener("toggle", () => draw(false));
   await draw(true);
-  return () => stop();
+  return () => { stop(); clearTimeout(state.toast); document.querySelector(".toast")?.remove(); };
 }
 
 function drawRail(node, day, t, go) {
@@ -193,9 +207,38 @@ function drawRail(node, day, t, go) {
   node.querySelectorAll(".rail-c").forEach(b => b.classList.toggle("on", +b.dataset.t === t));
 }
 
-function renderDecision(node, dc, day, meta, t) {
+/* Полоса состояния: одно главное слово, через сколько станет тесно, на какие данные опирается */
+function etaOf(ov, nowMin) {
+  if (ov.mid == null) return null;
+  if (ov.mid === 0) return { big: "уже сейчас", small: "самый полный поезд выше нормы" };
+  const early = ov.early != null && ov.early < ov.mid ? ov.early : null;
+  return { big: `через ${ov.mid} мин`, small: early != null ? `может начаться уже через ${early} мин, около ${hhmm(nowMin + ov.mid)}` : `около ${hhmm(nowMin + ov.mid)}` };
+}
+
+function stateLevel(dc, ov) {
+  if (ov.mid === 0) return { c: "var(--red)", label: "Нужна мера сейчас", quiet: false };
+  const soon = ov.mid != null ? ov.mid : (dc.s === "structural" || dc.s === "anomaly") && dc.w?.lead_min != null ? dc.w.lead_min : null;
+  if (soon != null && soon <= 60) return { c: "var(--amber)", label: "Нужна мера в ближайший час", quiet: false };
+  if (soon != null) return { c: "var(--amber)", label: "Скоро станет тесно, следите", quiet: false };
+  return { c: "var(--green)", label: dc.s === "low" ? "Хватает с запасом" : "Поездов хватает", quiet: true };
+}
+
+function renderState(node, dc, ov, pts, nowMin, meta) {
+  const lv = stateLevel(dc, ov), eta = etaOf(ov, nowMin);
+  node.style.setProperty("--c", lv.c);
+  node.classList.toggle("quiet", lv.quiet);
+  const peak = Math.round(d3.max(pts, p => p.plan));
+  node.innerHTML = `<div class="sb-main">${lv.label}</div>
+    ${eta ? `<div class="sb-eta">${eta.big}<small>${eta.small}</small></div>` : `<div class="sb-eta">в ближайшие 2 часа не выше ${fmt(peak)}<small>человек в самом полном поезде, норма ${fmt(meta.c.norm)}</small></div>`}
+    <div class="sb-meta">данные до ${slotStr(dc.t + 1)}<br>пересчёт каждые 15 минут</div>`;
+}
+
+function renderDecision(node, dc, day, meta, t, ctx) {
+  const { ov, nowMin } = ctx;
+  const lv = stateLevel(dc, ov), eta = etaOf(ov, nowMin);
   const st = STATUS[dc.s];
   const w = dc.w;
+  const when = eta ? (ov.mid === 0 ? "уже сейчас" : eta.big) : (w?.lead_min ? `через ${w.lead_min} мин` : "уже сейчас");
   let head, why;
   if (dc.s === "ok") {
     head = "Следующие 2 часа в поездах свободно";
@@ -207,14 +250,28 @@ function renderDecision(node, dc, day, meta, t) {
     head = w.sector === "line" ? `Людей ${more(dc.lr - 1)}`
       : `${SECT[w.sector]}: до ${fmt(w.peak)} человек в поезде с ${slotStr(w.from)} до ${slotStr(w.to + 1)}`;
     why = dc.s === "structural"
-      ? `Людей как обычно, но поездов по графику мало: норма ${fmt(meta.c.norm)} человек в поезде. ${w.lead_min ? `Начнётся через ${w.lead_min} мин.` : "Уже сейчас."}`
-      : `Людей больше обычного, станет тесно ${w.lead_min ? `через ${w.lead_min} мин` : "уже сейчас"}.`;
+      ? `Людей как обычно, но поездов по графику мало: норма ${fmt(meta.c.norm)} человек в поезде. Станет тесно ${when}.`
+      : `Людей больше обычного, станет тесно ${when}.`;
   }
-  const ms = dc.m.length ? dc.m.map(m => `
+  const hasMeasure = dc.m.length > 0;
+  const quiet = lv.quiet && !state.showAll;
+  const entry = getEntry(day.date, t);
+
+  if (quiet) {
+    const peak = Math.round(d3.max(ctx.pts, p => p.plan));
+    node.innerHTML = `<div class="quiet-note"><b>Меры не нужны.</b> Самый полный поезд в ближайшие 2 часа: до ${fmt(peak)} человек при норме ${fmt(meta.c.norm)}.
+      ${hasMeasure ? `<br>${plain(dc.m[0].text)}.` : ""}
+      <div class="rec-actions"><button class="btn" id="p-showall">Показать подробности</button></div></div>`;
+    document.getElementById("p-showall").onclick = () => { state.showAll = true; ctx.redraw(); };
+    return;
+  }
+
+  const ms = hasMeasure ? dc.m.map(m => `
     <li class="measure"><div class="ic" style="${m.type === "add" ? "background:var(--ink);color:var(--paper)" : ""}">${ICON[m.type]}</div>
     <div><b>${plain(m.text)}</b><span>${plain(m.why)}</span></div></li>`).join("")
     : `<li class="measure"><div class="ic">✓</div><div><b>Работать по графику</b><span>менять ничего не нужно</span></div></li>`;
-  const checks = dc.ck ? `<ul class="checks">${dc.ck.map(c => { const [r, n] = checkText(c); return `<li><span class="${c.ok ? "y" : "n"}">${c.ok ? "✓" : "✕"}</span><span>${r}</span><em>${n}</em></li>`; }).join("")}</ul>` : "";
+  const checks = dc.ck ? `<ul class="checks">${dc.ck.map(c => { const [r, n] = checkText(c); return `<li><span class="${c.ok ? "y" : "n"}">${c.ok ? "✓" : "✕"}</span><span>${r}</span><em>${n}</em></li>`; }).join("")}
+    <li><span class="q">?</span><span>Смены машинистов</span><em>нет данных, проверьте по графику бригад</em></li></ul>` : "";
   const P = day.sys[t + 1], trains = Math.round(P * meta.c.turnover / 60);
   let gain = "";
   if (w && (w.sector === "north" || w.sector === "south") && dc.m.some(m => m.type === "hold" || m.type === "add")) {
@@ -227,6 +284,18 @@ function renderDecision(node, dc, day, meta, t) {
       <div class="gain-row"><div><span class="num">${fmt(oa)}</span> → <b class="num">${fmt(ob)}</b><small>людей едут в тесноте сверх нормы</small></div>
       ${pb < pa - 10 ? `<div><span class="num">${fmt(pa)}</span> → <b class="num">${fmt(pb)}</b><small>человек в самом полном поезде</small></div>` : `<div><b class="num">−${Math.round((1 - ob / oa) * 100)}%</b><small>тесноты с ${slotStr(w.from)} до ${slotStr(w.to + 1)}</small></div>`}</div></div>`;
   }
+
+  let actions = "";
+  if (hasMeasure) {
+    if (entry) actions = `<div class="rec-done"><span>${ACT[entry.act]} в ${slotStr(t + 1)}${entry.reason ? `: ${entry.reason.toLowerCase()}` : ""}. Записано в журнал.</span><button id="p-undo">Отменить</button></div>`;
+    else if (state.ui === "confirm") actions = `<div class="rec-confirm"><p>Подтвердите, что берёте в работу:</p>
+      <ul>${dc.m.map(m => `<li>${plain(m.text)}</li>`).join("")}</ul>
+      <div class="rec-actions" style="margin:0"><button class="btn solid" id="p-yes">Подтвердить</button><button class="btn" id="p-no">Назад</button></div></div>`;
+    else if (state.ui === "reject") actions = `<div class="rec-confirm"><p>Почему не нужно?</p><div class="rec-reasons">${REASONS.map((r, i) => `<button class="btn" data-r="${i}">${r}</button>`).join("")}</div>
+      <div class="rec-actions" style="margin-bottom:0"><button class="btn" id="p-no">Назад</button></div></div>`;
+    else actions = `<div class="rec-actions"><button class="btn solid" id="p-accept">Принять</button><button class="btn" id="p-defer">Отложить на 15 минут</button><button class="btn" id="p-reject">Не нужно</button></div>`;
+  }
+
   node.innerHTML = `
     <div class="verdict">
       <span class="status" style="color:${st.c}"><span class="dot" style="background:${st.c}"></span>${st.label}</span>
@@ -235,35 +304,46 @@ function renderDecision(node, dc, day, meta, t) {
     </div>
     <p class="kicker" style="margin:16px 0 0">Что сделать</p>
     <ul class="measures">${ms}</ul>
+    ${actions}
     ${gain}
     ${checks ? `<p class="kicker" style="margin:16px 0 0">Можно ли это сделать</p>${checks}` : ""}
-    <div class="linestate"><span>Линия сейчас:</span><span>поездов на линии <b>${trains}</b> из ${meta.c.max_trains}</span><span><b>${dec(P, 0)}</b> ${pl(P, "поезд", "поезда", "поездов")} в час, можно до ${Math.floor(meta.c.max_pairs)}</span></div>`;
+    <div class="linestate"><span>Линия сейчас:</span><span>поездов на линии <b>${trains}</b> из ${meta.c.max_trains}</span><span><b>${dec(P, 0)}</b> ${pl(P, "поезд", "поезда", "поездов")} в час, можно до ${Math.floor(meta.c.max_pairs)}</span></div>
+    ${lv.quiet ? `<div class="rec-actions"><button class="btn" id="p-hideall">Свернуть</button></div>` : ""}`;
+
+  const $ = id => document.getElementById(id), ui = v => { state.ui = v; ctx.redraw(); };
+  if ($("p-hideall")) $("p-hideall").onclick = () => { state.showAll = false; ctx.redraw(); };
+  if ($("p-accept")) $("p-accept").onclick = () => ui("confirm");
+  if ($("p-no")) $("p-no").onclick = () => ui(null);
+  if ($("p-reject")) $("p-reject").onclick = () => ui("reject");
+  if ($("p-yes")) $("p-yes").onclick = () => {
+    setEntry(day.date, t, { act: "accept", m: dc.m.map(m => plain(m.text)) });
+    state.ui = null; ctx.redraw();
+    toast("Принято. Решение записано в журнал.", () => { clearEntry(day.date, t); ctx.redraw(); });
+  };
+  if ($("p-defer")) $("p-defer").onclick = () => {
+    setEntry(day.date, t, { act: "defer", m: dc.m.map(m => plain(m.text)) });
+    state.t = Math.min(87, t + 1); state.ui = null; ctx.redraw();
+  };
+  node.querySelectorAll("[data-r]").forEach(b => b.onclick = () => {
+    setEntry(day.date, t, { act: "reject", reason: REASONS[+b.dataset.r], m: dc.m.map(m => plain(m.text)) });
+    state.ui = null; ctx.redraw();
+  });
+  if ($("p-undo")) $("p-undo").onclick = () => { clearEntry(day.date, t); ctx.redraw(); };
+}
+
+/* короткая плашка с отменой на 10 секунд */
+function toast(text, onUndo) {
+  document.querySelector(".toast")?.remove(); clearTimeout(state.toast);
+  const el = document.createElement("div"); el.className = "toast"; el.setAttribute("role", "status");
+  el.innerHTML = `<span>${text}</span><button>Отменить (10 с)</button>`;
+  el.querySelector("button").onclick = () => { el.remove(); clearTimeout(state.toast); onUndo(); };
+  document.body.appendChild(el);
+  state.toast = setTimeout(() => el.remove(), 10000);
 }
 
 const cap = s => s[0].toUpperCase() + s.slice(1);
 
-function pl(n, one, few, many) {
-  n = Math.abs(Math.round(n)); const m10 = n % 10, m100 = n % 100;
-  return m10 === 1 && m100 !== 11 ? one : m10 >= 2 && m10 <= 4 && (m100 < 12 || m100 > 14) ? few : many;
-}
 const more = r => Math.abs(r) < 0.03 ? "как обычно" : `на ${Math.round(Math.abs(r) * 100)}% ${r > 0 ? "больше" : "меньше"} обычного`;
-
-/* тексты расчёта — языком диспетчерской, без «пар/ч» и сокращений */
-function plain(t) {
-  return t
-    .replace("Составы не добавить: линия на пределе пропускной способности", "Добавить поезд нельзя: они уже идут с минимальным интервалом")
-    .replace("предупредить станции сектора и подготовить регулирование входа на самых загруженных вестибюлях", "Предупредите станции участка: может понадобиться ограничить вход на самых загруженных")
-    .replace("по графику парность снижается, а поток ещё выше нормы; составы уже на линии, ввод не нужен", "По графику поезда уходят в депо, а людей ещё больше нормы. Поезда уже на линии, их достаточно не уводить")
-    .replace(/^Составы не добавлять: к центру до (\d[\d ]*) чел\. в составе \((\d+)% нормы\)/, "Добавлять поезда не нужно: в поезде до $1 человек, это $2% нормы")
-    .replace("поток выше обычного, но на перегонах, где загрузку можно оценить, место есть; по центру — доклады дежурных станций", "Людей больше обычного, но в поездах есть место. По центру ориентируйтесь на доклады дежурных")
-    .replace(/^поток (-?[−\d]+)% к обычному дню; загрузка остаётся ниже (\d+)% нормы, интервал в пределах графика/, (m, p, n) => `Людей на ${String(p).replace(/[-−]/, "")}% меньше обычного, поезда заполнены меньше чем на ${n}%`)
-    .replace(/^резерв выходит за (\d+)–(\d+) мин и успевает/, "Резервный поезд выезжает за $1–$2 мин и успевает")
-    .replace(/^перегрузка через (\d+) мин: резерв успеет только к (\d\d:\d\d)/, "Тесно станет через $1 мин, резерв успеет только к $2")
-    .replace(/Не снимать составы до (\d\d:\d\d): держать (\d+) пар\/ч/, (m, h, n) => `Не уводить поезда в депо до ${h}: оставить ${n} ${pl(n, "поезд", "поезда", "поездов")} в час`)
-    .replace(/Выпустить (\d+) сост\. раньше графика из депо ([^,]+), \+(\d+) пар\/ч/, (m, n, d, p) => `Выпустить ${n} ${pl(n, "поезд", "поезда", "поездов")} из депо ${d} раньше графика`)
-    .replace(/Выдать (\d+) сост\. из резерва депо ([^,]+), \+(\d+) пар\/ч/, (m, n, d) => `Выпустить ${n} ${pl(n, "резервный поезд", "резервных поезда", "резервных поездов")} из депо ${d}`)
-    .replace(/Снять (\d+) сост\. в депо, −(\d+) пар\/ч/, (m, n) => `Отправить ${n} ${pl(n, "поезд", "поезда", "поездов")} в депо`);
-}
 
 function checkText(c) {
   if (c.rule.startsWith("Запас по интервалу")) {

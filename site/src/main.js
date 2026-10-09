@@ -5,6 +5,7 @@ const TABS = {
   pult: () => import("./tabs/pult.js"),
   plan: () => import("./tabs/plan.js"),
   anomalies: () => import("./tabs/anomalies.js"),
+  review: () => import("./tabs/review.js"),
 };
 
 const app = document.getElementById("app");

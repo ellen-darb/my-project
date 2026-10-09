@@ -342,3 +342,44 @@ details.more[open] > summary::before { content: "−"; }
 .gain-row div { white-space: normal; }
 @media (max-width: 640px) { .transport { grid-template-columns: 1fr; } }
 .daysel { white-space: nowrap; }
+
+/* ---------- полоса состояния, коридор, карточка решения ---------- */
+.statebar { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 22px; padding: 14px 18px; margin: 0 0 14px; border-radius: 8px; background: var(--sheet); border: 1.5px solid var(--rule); border-left: 8px solid var(--c, var(--green)); }
+.statebar .sb-main { font-size: 24px; font-weight: 800; letter-spacing: -0.02em; line-height: 1.15; }
+.statebar .sb-eta { font-size: 18px; font-weight: 700; font-variant-numeric: tabular-nums; }
+.statebar .sb-eta small { display: block; font-size: 13px; font-weight: 500; color: var(--ink-2); }
+.statebar .sb-meta { margin-left: auto; font-size: 13px; color: var(--ink-3); text-align: right; }
+.statebar.quiet { background: transparent; border-left-color: var(--rule); }
+.statebar.quiet .sb-main { color: var(--ink-2); }
+.corridor { margin: 4px 0 0; }
+.corridor-head { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: baseline; gap: 4px 14px; margin-top: 18px; }
+.corridor-head h3 { margin: 0; font-size: 16px; }
+.corridor-head .legend { font-size: 12px; color: var(--ink-2); }
+.timeslider { display: grid; grid-template-columns: 1fr; gap: 2px; margin: 0 0 14px; padding: 0 6px 0 38px; font-size: 13px; color: var(--ink-2); }
+.timeslider input[type=range] { width: 100%; accent-color: var(--ink); height: 28px; cursor: pointer; }
+.timeslider output { font-weight: 700; color: var(--ink); text-align: center; font-variant-numeric: tabular-nums; }
+.lm-note { font-size: 12px; fill: var(--ink-3); }
+.rec-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 16px; }
+.rec-actions .btn { padding: 10px 18px; }
+.rec-confirm { margin-top: 16px; padding: 14px; border: 2px solid var(--ink); border-radius: 8px; background: var(--sheet); }
+.rec-confirm p { margin: 0 0 10px; font-weight: 600; }
+.rec-confirm ul { margin: 0 0 12px; padding-left: 18px; }
+.rec-reasons { display: flex; flex-direction: column; gap: 6px; margin-top: 12px; }
+.rec-reasons .btn { text-align: left; }
+.rec-done { margin-top: 14px; padding: 10px 14px; border-radius: 6px; background: var(--ok-bg); display: flex; justify-content: space-between; align-items: center; gap: 12px; font-weight: 600; }
+.rec-done button { border: 0; background: transparent; text-decoration: underline; cursor: pointer; font-weight: 600; }
+.quiet-note { padding: 18px 0; color: var(--ink-2); }
+.quiet-note b { color: var(--ink); }
+.toast { position: fixed; left: 50%; bottom: 20px; transform: translateX(-50%); z-index: 40; background: var(--ink); color: var(--paper); padding: 12px 18px; border-radius: 8px; display: flex; gap: 16px; align-items: center; box-shadow: 0 6px 24px rgba(0,0,0,.25); }
+.toast button { border: 0; background: transparent; color: var(--paper); text-decoration: underline; font-weight: 700; cursor: pointer; }
+.review-sum { display: flex; flex-wrap: wrap; gap: 8px 28px; margin: 14px 0 20px; }
+.review-sum div { font-size: 14px; color: var(--ink-2); }
+.review-sum b { display: block; font-size: 28px; color: var(--ink); line-height: 1.1; font-variant-numeric: tabular-nums; }
+.review-table { width: 100%; border-collapse: collapse; font-size: 14px; }
+.review-table th { text-align: left; font-size: 12px; letter-spacing: .06em; text-transform: uppercase; color: var(--ink-3); padding: 8px 10px; border-bottom: 2px solid var(--ink); }
+.review-table td { padding: 10px; border-bottom: 1px solid var(--rule); vertical-align: top; }
+.review-table .st { white-space: nowrap; font-weight: 700; }
+.review-table .st i { display: inline-block; width: 9px; height: 9px; border-radius: 50%; margin-right: 6px; }
+.review-table .dcs { font-weight: 700; }
+@media (max-width: 640px) { .statebar .sb-meta { margin-left: 0; text-align: left; } .review-table th:nth-child(4), .review-table td:nth-child(4) { display: none; } }
+.checks .q { color: var(--amber); font-weight: 800; }
