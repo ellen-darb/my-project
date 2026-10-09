@@ -49,8 +49,7 @@ def main():
               "cold_lead": line.COLD_LEAD_MIN, "alpha": line.ALPHA, "alpha_range": line.ALPHA_RANGE, "alpha_est": alpha_estimate(hdays, H),
               "run_one_way": line.RUN_ONE_WAY_MIN, "line_km": line.LINE_KM},
         "w_ratio": simulate.W_RATIO,
-        "engine": {"morning_end": engine.MORNING_END, "cut_hours": list(engine.CUT_HOURS), "hot_cap": engine.HOT_CAP,
-                   "edges": {k: v["edge"] for k, v in line.SECTORS.items()}, "seg_min": line.SEG_MIN,
+        "engine": {"morning_end": engine.MORNING_END, "cut_hours": list(engine.CUT_HOURS), "edges": {k: v["edge"] for k, v in line.SECTORS.items()}, "seg_min": line.SEG_MIN,
                    "min_pairs": {"weekday": [line.min_pairs(h, False) for h in range(24)],
                                  "weekend": [line.min_pairs(h, True) for h in range(24)]}},
     }
@@ -161,12 +160,15 @@ def main():
             v["recall"] = round(v["tp"] / max(v["tp"] + v["fn"], 1), 3)
     det = {"all": det, "anomalous": det_anom}
     print(json.dumps(det))
+    import episodes
+    ep = episodes.evaluate(days, X, B)
+    print(json.dumps(ep))
 
     # GBM и модели по станциям — из forecast.py (обучение на феврале и мае)
     import forecast as fc
     fout, *_ = fc.run()
     dump("forecast.json", {"sector": acc, "q": {h * 15: v for h, v in q.items()}, "cover": cover,
-                           "detect": det, "station": fout["horizons"], "sector_gbm": fout["sector"],
+                           "detect": det, "episodes": ep, "station": fout["horizons"], "sector_gbm": fout["sector"],
                            "importance": fout["importance"], "train_days": len(train), "test_days": len(test)})
     print("прогноз", round(time.time() - t0, 1), "с")
 

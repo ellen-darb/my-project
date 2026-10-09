@@ -15,7 +15,6 @@ HOT = sum(line.HOT_RESERVE.values())
 W = 8                                                            # окно прогноза, слотов
 MORNING_END = 44        # слот 11:00: загрузку «к центру» по входам считаем только утром, для вечера нужны выходы
 CUT_HOURS = (10, 15)    # снимать составы по входам разумно только в дневной провал
-HOT_CAP = {"north": line.HOT_RESERVE["Северное"], "south": line.HOT_RESERVE["Автово"], "line": HOT}
 
 
 def pairs_profile(sched):
@@ -131,9 +130,9 @@ def decide(pairs, weekend, E, Bd, t, line_ratio, plan=None, alpha=line.ALPHA):
     start = max(s0, first)
     headroom = math.floor(line.MAX_PAIRS) - p_s0
     free = int(line.MAX_TRAINS - trains_on_line(p_s0))
-    cold_ok = (start - (t + 1)) * 15 >= line.COLD_LEAD_MIN
-    cap_trains = free if cold_ok else min(free, HOT_CAP[sec if sec in HOT_CAP else "line"])
-    add = int(min(need, max(headroom, 0), pairs_for(max(cap_trains, 0))))
+    # горячий резерв (2+2) выходит за 15–20 мин, холодные составы за 30; слоты по 15 мин, поэтому первый слот
+    # выпуска для тех и других — через 30 мин, и предел даёт только линия: 53 состава и интервал 1:53
+    add = int(min(need, max(headroom, 0), pairs_for(max(free, 0))))
     out["checks"] = [
         {"rule": "Запас по интервалу 1:53", "ok": headroom > 0, "note": f"{p_s0:.0f} из 31,9 пар/ч"},
         {"rule": "Свободные составы", "ok": free > 0, "note": f"на линии {int(trains_on_line(p_s0))} из 53"},

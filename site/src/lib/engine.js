@@ -138,10 +138,7 @@ export function decide(meta, pairs, weekend, E, Bd, t, lineRatio, plan, alpha) {
   const first = t + 1 + Math.ceil(c.hot_lead / 15), start = Math.max(s0, first);
   const headroom = Math.floor(c.max_pairs) - pS0;
   const free = Math.trunc(c.max_trains - trainsOnLine(pS0));
-  const coldOk = (start - (t + 1)) * 15 >= c.cold_lead;
-  const hotCap = en.hot_cap[sec] ?? en.hot_cap.line;
-  const capTrains = coldOk ? free : Math.min(free, hotCap);
-  const add = Math.trunc(Math.min(need, Math.max(headroom, 0), pairsFor(Math.max(capTrains, 0))));
+  const add = Math.trunc(Math.min(need, Math.max(headroom, 0), pairsFor(Math.max(free, 0))));
   out.checks = [
     { rule: "Запас по интервалу 1:53", ok: headroom > 0, note: `${pS0} из 31,9 пар/ч` },
     { rule: "Свободные составы", ok: free > 0, note: `на линии ${trainsOnLine(pS0)} из ${c.max_trains}` },
