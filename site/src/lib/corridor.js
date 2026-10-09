@@ -32,7 +32,7 @@ export function drawCorridor(node, { pts, off, norm, nowMin, onPick }) {
   const ymax = Math.max(1100, d3.max(pts, p => Math.max(p.hi, p.plan, p.sys)) * 1.05);
   const y = d3.scaleLinear().domain([0, ymax]).range([H - M.b, M.t]).nice();
   const svg = d3.select(node).html("").append("svg").attr("width", W).attr("height", H)
-    .attr("role", "img").attr("aria-label", "Загрузка самого полного поезда на ближайшие 2 часа");
+    .attr("role", "img").attr("aria-label", "Загрузка самого полного состава на ближайшие 2 часа");
   svg.append("g").attr("class", "grid").selectAll("line").data(y.ticks(3)).join("line")
     .attr("x1", M.l).attr("x2", W - M.r).attr("y1", d => y(d)).attr("y2", d => y(d));
   svg.append("g").attr("class", "axis").attr("transform", `translate(${M.l - 6},0)`).call(d3.axisLeft(y).ticks(3).tickSize(0).tickFormat(d => fmt(d)));
@@ -57,7 +57,7 @@ export function drawCorridor(node, { pts, off, norm, nowMin, onPick }) {
     .on("mousemove", ev => {
       const o = Math.max(0, Math.min(HORIZON, Math.round(x.invert(d3.pointer(ev)[0]) / STEP) * STEP));
       const p = pts.find(z => z.off === o);
-      tipShow(ev, `<b>${hhmm(nowMin + o)}</b>${o ? ` · через ${o} мин` : ""}<br>самый полный поезд: <b>${fmt(p.plan)}</b> чел.${o ? `<br><span class="muted">80% интервал: ${fmt(p.lo)}–${fmt(p.hi)}</span>` : ""}`);
+      tipShow(ev, `<b>${hhmm(nowMin + o)}</b>${o ? ` · через ${o} мин` : ""}<br>самый полный состав: <b>${fmt(p.plan)}</b> чел.${o ? `<br><span class="muted">80% интервал: ${fmt(p.lo)}–${fmt(p.hi)}</span>` : ""}`);
     })
     .on("mouseleave", tipHide)
     .on("click", ev => onPick(Math.max(0, Math.min(HORIZON, Math.round(x.invert(d3.pointer(ev)[0]) / STEP) * STEP))));

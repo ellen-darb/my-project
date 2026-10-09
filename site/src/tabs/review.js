@@ -4,8 +4,8 @@ import * as d3 from "d3";
 import { plain } from "../lib/plain.js";
 
 const STATUS = {
-  ok: ["var(--green)", "Поездов хватает"], structural: ["var(--amber)", "Тесно по графику"],
-  anomaly: ["var(--red)", "Людей больше обычного"], low: ["var(--blue)", "Можно убрать поезда"],
+  ok: ["var(--green)", "Составов хватает"], structural: ["var(--amber)", "Тесно по графику"],
+  anomaly: ["var(--red)", "Людей больше обычного"], low: ["var(--blue)", "Можно убрать составы"],
 };
 
 /* Разбор дня: что советовал Такт и что решил диспетчер. Журнал живёт в этом браузере. */
