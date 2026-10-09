@@ -33,6 +33,7 @@ def main():
     days, X = data.load_15min()
     hdays, H = data.load_hourly()
     B, _ = baseline.build(days, X, hdays, H)
+    B = np.round(B)      # сайт получает целые числа; считаем на тех же, чтобы расчёт в браузере совпадал побитно
     ds = [d.strftime("%Y-%m-%d") for d in days]
 
     # ---------- meta ----------
@@ -48,6 +49,10 @@ def main():
               "cold_lead": line.COLD_LEAD_MIN, "alpha": line.ALPHA, "alpha_range": line.ALPHA_RANGE, "alpha_est": alpha_estimate(hdays, H),
               "run_one_way": line.RUN_ONE_WAY_MIN, "line_km": line.LINE_KM},
         "w_ratio": simulate.W_RATIO,
+        "engine": {"morning_end": engine.MORNING_END, "cut_hours": list(engine.CUT_HOURS), "hot_cap": engine.HOT_CAP,
+                   "edges": {k: v["edge"] for k, v in line.SECTORS.items()}, "seg_min": line.SEG_MIN,
+                   "min_pairs": {"weekday": [line.min_pairs(h, False) for h in range(24)],
+                                 "weekend": [line.min_pairs(h, True) for h in range(24)]}},
     }
     meta["quality"] = quality(days, X, hdays, H)
     dump("meta.json", meta)
@@ -68,12 +73,13 @@ def main():
             if "window" in dec:
                 row["w"] = dec["window"]; row["ck"] = dec["checks"]
             decisions.append(row)
+        wx = weather_day(ds[i])
         dump(f"day/{ds[i]}.json", {
             "date": ds[i], "sched": sched, "group": line.day_group(d),
             "x": r(X[i]), "b": r(B[i]), "plan": r(plan, 1), "sys": r(P, 1),
             "load_plan": {k: r(v) for k, v in Lp.items()}, "load_sys": {k: r(v) for k, v in Ls.items()},
             "load_typ": {k: r(v) for k, v in sector_loads(B[i], plan).items()},
-            "dec": decisions,
+            "dec": decisions, **({"wx": wx} if wx else {}),
         })
         kinds = [m["type"] for dec in log for m in dec["measures"]]
         first = {}
@@ -245,6 +251,24 @@ def main():
     print("готово", round(time.time() - t0, 1), "с")
 
 
+_WX = None
+
+
+def weather_day(date):
+    """Погода по часам на день (Open-Meteo, data/weather_hourly.csv.gz); нет файла — нет блока."""
+    global _WX
+    if _WX is None:
+        p = os.path.join(data.ROOT, "data", "weather_hourly.csv.gz")
+        _WX = pd.read_csv(p).assign(d=lambda x: x.ts.str[:10], h=lambda x: x.ts.str[11:13].astype(int)) if os.path.exists(p) else False
+    if _WX is False:
+        return None
+    g = _WX[_WX.d == date].sort_values("h")
+    if len(g) != 24:
+        return None
+    return {"t": g.temp.round(0).astype(int).tolist(), "p": g.precip.round(1).tolist(), "s": g.snow.round(1).tolist(),
+            "w": g.wind.round(0).astype(int).tolist(), "c": g.code.astype(int).tolist()}
+
+
 def quality(days, X, hdays, H):
     """Проверка данных: пропуски, нули, согласованность 15-минутного и часового файлов."""
     q = pd.read_csv(os.path.join(data.ROOT, "data", "entries_15min.csv.gz"))
@@ -271,7 +295,7 @@ def alpha_sensitivity(days, X, B):
     Решения принимаются и оцениваются при одном и том же α — так видно, что от α зависит, а что нет."""
     out = []
     for a in (0.75, 0.85, 0.89, 1.0):
-        engine.section_flow.__defaults__ = (a,)
+        engine.section_flow.__defaults__ = (a, None)
         n_over = 0; op = os_ = th = w = 0.0
         for i, d in enumerate(days):
             plan = engine.pairs_profile(line.schedule_for(d))
@@ -283,7 +307,7 @@ def alpha_sensitivity(days, X, B):
             th += ef["system"]["train_h"] - ef["plan"]["train_h"]; w += (ef["plan"]["wait_min"] - ef["system"]["wait_min"]) / 60
         out.append({"alpha": a, "over_slots": n_over, "over_plan": round(op), "over_sys": round(os_),
                     "train_h": round(th, 1), "wait_h": round(w)})
-    engine.section_flow.__defaults__ = (line.ALPHA,)
+    engine.section_flow.__defaults__ = (line.ALPHA, None)
     return out
 
 
@@ -321,13 +345,13 @@ def proposal_variants(days, X, ds, proposal):
             need[first_drop:end] = np.maximum(plan[first_drop:end], peak)
         row = {"until": None if end is None else int(end), "train_h_day": round(float(((engine.trains_on_line(need) - engine.trains_on_line(plan)) * 0.25).sum()), 2)}
         for a in (0.75, 0.85, 0.89):
-            engine.section_flow.__defaults__ = (a,)
+            engine.section_flow.__defaults__ = (a, None)
             ev = [simulate.effect(X[i], plan, need) for i in sep]
             row[str(a)] = {"over_plan": round(float(np.mean([e["plan"]["over_pax"] for e in ev]))),
                            "over_new": round(float(np.mean([e["system"]["over_pax"] for e in ev])))}
             row["wait_h_day"] = round(float(np.mean([(e["plan"]["wait_min"] - e["system"]["wait_min"]) / 60 for e in ev])), 1)
         rows.append(row)
-    engine.section_flow.__defaults__ = (line.ALPHA,)
+    engine.section_flow.__defaults__ = (line.ALPHA, None)
     return {"from": int(first_drop), "peak": float(peak), "rows": rows}
 
 
