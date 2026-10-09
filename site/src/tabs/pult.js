@@ -23,6 +23,7 @@ const LV = {
   ok: { c: "var(--green)", ic: "check", label: "Составов хватает" },
   watch: { c: "var(--amber)", ic: "eye", label: "Людей больше обычного, следите" },
   low: { c: "var(--blue)", ic: "minus", label: "Можно убрать составы" },
+  na: { c: "var(--ink-3)", ic: "eye", label: "Загрузку по входам не оцениваем" },
   soon: { c: "var(--amber)", ic: "clock", label: "Скоро станет тесно" },
   hour: { c: "var(--amber)", ic: "clock", label: "Нужна мера в ближайший час" },
   now: { c: "var(--red)", ic: "alert", label: "Нужна мера сейчас" },
@@ -355,6 +356,7 @@ function peakText(view, meta) {
 
 function stateOf(view) {
   const base = levelOf(view.dc);
+  if (base.k === "ok" && !view.pts.some(p => p.valid)) return { k: "na" };
   const { entry, accepted, eff } = view;
   if (!["now", "hour", "soon"].includes(base.k)) return base;
   if (accepted && eff) return { ...base, k: eff.after.over > 0.5 ? "doneTight" : "done" };
@@ -365,7 +367,7 @@ function stateOf(view) {
 function renderState(node, view, meta) {
   const dc = view.dc, lv = stateOf(view), L = LV[lv.k], w = dc.window;
   node.style.setProperty("--c", L.c);
-  node.classList.toggle("quiet", lv.k === "ok");
+  node.classList.toggle("quiet", lv.k === "ok" || lv.k === "na");
   let sub;
   if (["now", "hour", "soon", "noact", "refused", "done", "doneTight"].includes(lv.k) && w) {
     const when = w.lead_min <= 0 ? "уже сейчас" : `через ${w.lead_min} мин`;
@@ -373,6 +375,7 @@ function renderState(node, view, meta) {
     sub = `${SECT[w.sector]}: ${when}, с ${slotStr(w.from)} до ${slotStr(w.to + 1)}, до ${fmt(peak)} человек в составе при норме ${fmt(meta.c.norm)}`;
   } else if (lv.k === "watch") sub = dc.window.peak ? `в составах пока есть место: до ${fmt(dc.window.peak)} человек при норме ${fmt(meta.c.norm)}` : "загрузку составов по входам оценить нельзя, ориентируйтесь на доклады станций";
   else if (lv.k === "low") sub = "поток ниже обычного, составы будут заполнены меньше чем на 70%";
+  else if (lv.k === "na") sub = "поток в пределах обычного; вне утреннего пика нужны выходы по станциям, их в данных нет";
   else sub = peakText(view, meta);
   node.innerHTML = `<div class="sb-ic" aria-hidden="true">${svgIc(L.ic)}</div>
     <div class="sb-txt"><div class="sb-main">${L.label}</div><div class="sb-sub">${sub}</div></div>
@@ -388,8 +391,8 @@ function renderDecision(node, view, day, meta, ctx) {
   const acts = view.act;
   const hasAct = acts.length > 0;
 
-  if (lv.k === "ok") {
-    node.innerHTML = `<div class="rec rec-quiet"><p class="rec-big">Меры не нужны</p><p class="rec-why">${peakText(view, meta)}.</p>
+  if (lv.k === "ok" || lv.k === "na") {
+    node.innerHTML = `<div class="rec rec-quiet"><p class="rec-big">Меры не нужны</p><p class="rec-why">${lv.k === "na" ? "Поток в пределах обычного." : peakText(view, meta) + "."}</p>
       ${linestate(view, meta)}</div>`;
     return;
   }
@@ -405,11 +408,12 @@ function renderDecision(node, view, day, meta, ctx) {
   const alphaRange = w => { const a = state.alpha, lo = Math.round(w * 0.75 / a), hi = Math.round(w * 1 / a); return lo === hi ? "" : ` · при другой доле едущих к центру: ${fmt(lo)}–${fmt(hi)}`; };
   if (eff) {
     const b = eff.before, a = eff.after;
-    if (hasAct && (a.over < b.over * 0.99 || a.peak < b.peak - 10)) {
-      gain = `<div class="gain"><p class="gain-k">Если выполнить совет, с ${slotStr(dc.window.from)} до ${slotStr(dc.window.to + 1)}</p>
+    if (hasAct) {
+      const small = a.over > b.over * 0.97 && a.peak > b.peak - 15;
+      gain = `<div class="gain${small ? " gain-small" : ""}"><p class="gain-k">${entry?.act === "accept" ? "С принятой мерой" : "Если выполнить совет"}, с ${slotStr(dc.window.from)} до ${slotStr(dc.window.to + 1)}</p>
         <div class="gain-row"><div><span class="num">${fmt(b.over)}</span><i>→</i><b class="num">${fmt(a.over)}</b><small>человек едут сверх нормы, всего по составам</small></div>
         <div><span class="num">${fmt(b.peak)}</span><i>→</i><b class="num">${fmt(a.peak)}</b><small>человек в самом полном составе</small></div></div>
-        <p class="gain-n">Расчёт при допущении, что к центру едут ${Math.round(state.alpha * 100)}% входящих${alphaRange(b.peak)}</p></div>`;
+        <p class="gain-n">${small ? "Мера почти не меняет картину: одного состава в пик мало. " : ""}Расчёт при допущении, что к центру едут ${Math.round(state.alpha * 100)}% входящих${alphaRange(b.peak)}</p></div>`;
     } else if (b.over > 1) {
       gain = `<div class="gain gain-none"><p class="gain-k">Если ничего не менять, с ${slotStr(dc.window.from)} до ${slotStr(dc.window.to + 1)}</p>
         <div class="gain-row"><div><b class="num">${fmt(b.over)}</b><small>человек едут сверх нормы, всего по составам</small></div>

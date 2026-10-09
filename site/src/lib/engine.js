@@ -168,7 +168,7 @@ export function applyMeasures(P, plan, measures, maxPairs) {
     const a = m.from, b = m.to;
     for (let k = a; k <= b && k < SLOTS; k++) {
       if (m.type === "hold") P[k] = Math.max(P[k], m.pairs);
-      else if (m.type === "add") P[k] = Math.min(Math.max(P[k], plan[k] + m.pairs), Math.floor(maxPairs));
+      else if (m.type === "add") P[k] = Math.max(P[k], Math.min(plan[k] + m.pairs, Math.floor(maxPairs)));
       else if (m.type === "cut") P[k] = Math.min(P[k], plan[k] - m.pairs);
     }
   }

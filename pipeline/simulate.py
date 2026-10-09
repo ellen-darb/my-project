@@ -38,7 +38,7 @@ def run_day(day, Xd, Bd):
             if m["type"] == "hold":
                 P[a:b + 1] = np.maximum(P[a:b + 1], m["pairs"])
             elif m["type"] == "add":
-                P[a:b + 1] = np.minimum(np.maximum(P[a:b + 1], plan[a:b + 1] + m["pairs"]), np.floor(line.MAX_PAIRS))
+                P[a:b + 1] = np.maximum(P[a:b + 1], np.minimum(plan[a:b + 1] + m["pairs"], np.floor(line.MAX_PAIRS)))   # никогда не ниже уже действующего
             elif m["type"] == "cut":
                 P[a:b + 1] = np.minimum(P[a:b + 1], plan[a:b + 1] - m["pairs"])
         log.append(dec)
