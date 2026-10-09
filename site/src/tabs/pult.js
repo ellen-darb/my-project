@@ -337,7 +337,7 @@ function drawRail(node, day, t, rail, go) {
   if (node.dataset.d !== day.date + rail.map(r => r.k).join("")) {
     node.dataset.d = day.date + rail.map(r => r.k).join("");
     node.innerHTML = rail.map(r => `<button class="rail-c k-${r.k}" tabindex="-1" data-t="${r.t}" style="--c:${LV[r.k].c}" aria-hidden="true"></button>`).join("")
-      + `<div class="rail-ax">${[7, 9, 12, 15, 18, 21].map(h => `<span style="left:${(h * 4 - 24 + 0.5) / 64 * 100}%">${String(h).padStart(2, "0")}:00</span>`).join("")}</div>`;
+      + `<div class="rail-ax">${[6, 9, 12, 15, 18, 21].map(h => `<span style="left:${(h * 4 - 24) / 64 * 100}%"${h === 6 ? ' class="first"' : ''}>${String(h).padStart(2, "0")}:00</span>`).join("")}</div>`;
     node.querySelectorAll(".rail-c").forEach(b => {
       const r = rail[+b.dataset.t - FIRST];
       b.onclick = () => go(+b.dataset.t);
