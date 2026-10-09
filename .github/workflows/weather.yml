@@ -1,0 +1,23 @@
+name: Погода
+on:
+  workflow_dispatch:
+  push:
+    paths: [pipeline/weather.py, .github/workflows/weather.yml]
+permissions:
+  contents: write
+jobs:
+  fetch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.11" }
+      - run: pip install pandas
+      - run: python pipeline/weather.py
+      - name: Сохранить файл в ветку
+        run: |
+          git config user.name "github-actions"
+          git config user.email "actions@users.noreply.github.com"
+          git add data/weather_hourly.csv.gz
+          git diff --cached --quiet || git commit -m "Погода по часам для Санкт-Петербурга (Open-Meteo)"
+          git push
